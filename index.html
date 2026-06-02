@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RR Circuits</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">⚡</div>
+      <div class="login-logo-text">RR <span>Circuits</span></div>
+      <div class="login-logo-sub">Rec Room Style Circuit Editor</div>
+    </div>
+
+    <div class="login-tabs">
+      <button class="login-tab active" id="tabLogin">Login</button>
+      <button class="login-tab"        id="tabRegister">Register</button>
+    </div>
+
+    <div id="loginForm">
+      <div class="login-field">
+        <label>Username</label>
+        <input type="text" id="loginUser" placeholder="Enter username" autocomplete="username">
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="loginPass" placeholder="Enter password" autocomplete="current-password">
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <button class="login-btn" id="loginSubmit">Login →</button>
+    </div>
+
+    <div id="registerForm" style="display:none">
+      <div class="login-field">
+        <label>Username</label>
+        <input type="text" id="regUser" placeholder="Choose a username" autocomplete="username">
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="regPass" placeholder="Choose a password (4+ chars)" autocomplete="new-password">
+      </div>
+      <div class="login-error" id="regError"></div>
+      <button class="login-btn" id="registerSubmit">Create Account →</button>
+    </div>
+
+    <div class="login-footer">Your saves are stored locally on this device</div>
+  </div>
+</div>
+
+<!-- ═══ MAIN APP (hidden until logged in) ═══ -->
+<div class="app-root" id="appRoot" style="display:none">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <div class="rr-logo">⚡ <span>RR Circuits</span></div>
+      <button class="hbtn"  id="settingsBtn">⚙ Settings</button>
+    </div>
+    <div class="header-center">
+      <button class="hbtn green" id="saveBtn">💾 Save</button>
+      <button class="hbtn"       id="loadBtn">📂 Load</button>
+      <button class="hbtn orange" id="simulateBtn">▶ Simulate</button>
+      <div class="proj-name-wrap">
+        <span class="proj-name" id="projectName" contenteditable="true" spellcheck="false">Untitled Circuit</span>
+      </div>
+      <button class="hbtn accent" id="exportBtn">⬆ Export Code</button>
+    </div>
+    <div class="header-right">
+      <span class="user-pill" id="userPill">👤 <span id="userLabel">User</span></span>
+      <button class="hbtn danger" id="logoutBtn">Logout</button>
+    </div>
+  </header>
+
+  <!-- BOARD TABS -->
+  <div class="board-tab-bar">
+    <div class="board-tabs" id="boardTabs"></div>
+    <div class="board-tab-actions">
+      <button class="hbtn small" id="packageChipBtn" title="Package active board as a custom chip">📦 Package as Chip</button>
+      <button class="hbtn small" id="newChipBtn" title="Create a custom chip manually">✚ Custom Chip</button>
+    </div>
+  </div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="chipSearch" placeholder="SEARCH CHIPS" autocomplete="off">
+          <button class="icon-btn" id="filterBtn" title="Filter">☰</button>
+        </div>
+        <div class="cat-filter-row" id="categoryFilters" style="display:none"></div>
+      </div>
+      <div class="chip-list" id="chipList"></div>
+    </aside>
+
+    <!-- CANVAS WRAPPER -->
+    <div class="canvas-wrapper">
+      <!-- TOOLBAR -->
+      <div class="toolbar">
+        <button class="tool-btn active" data-tool="select" title="Select (V)">↖</button>
+        <button class="tool-btn"        data-tool="pan"    title="Pan (H/Space)">✋</button>
+        <button class="tool-btn"        data-tool="frame"  title="Frame selection (F)">▭</button>
+        <button class="tool-btn"        data-tool="delete" title="Delete (Del)">🗑</button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn"        id="undoBtn"  title="Undo (Ctrl+Z)">↩</button>
+        <button class="tool-btn"        id="redoBtn"  title="Redo (Ctrl+Y)">↪</button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn"        id="frameAllBtn" title="Frame All (A)">⊞</button>
+      </div>
+
+      <!-- CANVAS -->
+      <div class="canvas-area" id="canvasArea">
+        <div class="canvas-transform" id="canvasTransform">
+          <svg class="svg-layer" id="svgLayer" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow-exec" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L6,3 Z" fill="#FF8C00"/>
+              </marker>
+            </defs>
+          </svg>
+          <div class="chips-layer" id="chipsLayer"></div>
+        </div>
+        <!-- Temp wire -->
+        <svg class="svg-overlay" id="svgOverlay" xmlns="http://www.w3.org/2000/svg">
+          <path id="tempWire" fill="none" stroke-width="2.5" stroke-linecap="round" visibility="hidden" stroke-dasharray="6,4"/>
+        </svg>
+        <!-- Selection box -->
+        <div class="sel-box" id="selBox" style="display:none"></div>
+      </div>
+
+      <!-- BOTTOM BAR -->
+      <div class="bottom-bar">
+        <span id="coordsDisplay" class="bot-info">X 0 / Y 0</span>
+        <span class="bot-sep"></span>
+        <span class="bot-info" id="selInfo"></span>
+        <span class="flex1"></span>
+        <button class="zoom-btn" id="zoomOut">−</button>
+        <span class="zoom-label" id="zoomDisplay">100%</span>
+        <button class="zoom-btn" id="zoomIn">+</button>
+        <button class="zoom-btn" id="zoomReset" title="Reset view">⊙</button>
+        <span class="flex1"></span>
+        <span class="bot-info" id="fpsDisplay">FPS 60</span>
+      </div>
+    </div>
+
+    <!-- INSPECTOR -->
+    <aside class="inspector" id="inspector">
+      <div class="inspector-empty" id="inspEmpty">
+        <div class="insp-icon">◁</div>
+        <p>Select a chip on the canvas to inspect its properties.</p>
+      </div>
+      <div class="inspector-content" id="inspContent" style="display:none"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- Settings -->
+<div class="modal-overlay" id="settingsModal" style="display:none">
+  <div class="modal">
+    <div class="modal-hdr"><h2>⚙ Settings</h2><button class="mclose" id="closeSettings">✕</button></div>
+    <div class="modal-body">
+      <div class="mgroup"><h3>Appearance</h3>
+        <label class="mrow"><span>Theme</span>
+          <select id="themeSelect"><option value="dark">Dark (Default)</option><option value="darker">Darker</option><option value="midnight">Midnight Blue</option></select>
+        </label>
+        <label class="mrow"><span>Grid</span>
+          <select id="gridStyle"><option value="dots">Dots</option><option value="lines">Lines</option><option value="none">None</option></select>
+        </label>
+        <label class="mrow"><span>Wire Style</span>
+          <select id="wireStyle"><option value="bezier">Bezier</option><option value="straight">Straight</option><option value="stepped">Stepped</option></select>
+        </label>
+        <label class="mrow"><span>Chip Scale</span>
+          <input type="range" id="chipScale" min="0.75" max="1.5" step="0.05" value="1">
+          <span id="chipScaleVal">1.0×</span>
+        </label>
+      </div>
+      <div class="mgroup"><h3>Canvas</h3>
+        <label class="mrow"><span>Snap to Grid</span><input type="checkbox" id="snapGrid" checked></label>
+        <label class="mrow"><span>Grid Size</span><input type="number" id="gridSize" min="8" max="64" value="16" style="width:60px"></label>
+        <label class="mrow"><span>Show FPS</span><input type="checkbox" id="showFps" checked></label>
+      </div>
+      <div class="mgroup"><h3>Export</h3>
+        <label class="mrow"><span>Default Language</span>
+          <select id="defaultLang">
+            <option value="csharp">C#</option><option value="lua">Lua</option>
+            <option value="python">Python</option><option value="javascript">JavaScript</option>
+            <option value="gdscript">GDScript</option>
+          </select>
+        </label>
+      </div>
+      <div class="mgroup"><h3>Data</h3>
+        <button class="mbtn danger" id="clearCanvas">🗑 Clear Canvas</button>
+        <button class="mbtn"        id="exportJsonBtn">📄 Export JSON</button>
+        <button class="mbtn"        id="importJsonBtn">📂 Import JSON</button>
+        <input type="file" id="importJsonFile" accept=".json,.rrc" style="display:none">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Saves / Load -->
+<div class="modal-overlay" id="savesModal" style="display:none">
+  <div class="modal">
+    <div class="modal-hdr"><h2>📂 My Saves</h2><button class="mclose" id="closeSaves">✕</button></div>
+    <div class="modal-body">
+      <div class="saves-list" id="savesList"></div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <input type="text" id="saveNameInput" placeholder="Circuit name..." style="flex:1;background:#0d1828;border:1px solid #2a3a55;color:#e0eaff;padding:6px 10px;border-radius:5px;outline:none">
+        <button class="mbtn green" id="saveToAccountBtn">💾 Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Code -->
+<div class="modal-overlay" id="exportModal" style="display:none">
+  <div class="modal modal-wide">
+    <div class="modal-hdr"><h2>⬆ Export Code</h2><button class="mclose" id="closeExport">✕</button></div>
+    <div class="modal-body">
+      <!-- Language tabs: Generic -->
+      <div class="export-section-label">Generic</div>
+      <div class="export-tabs" id="exportLangTabs">
+        <button class="etab active" data-lang="csharp">C#</button>
+        <button class="etab" data-lang="lua">Lua</button>
+        <button class="etab" data-lang="python">Python</button>
+        <button class="etab" data-lang="javascript">JavaScript</button>
+        <button class="etab" data-lang="gdscript">GDScript</button>
+        <button class="etab" data-lang="pseudocode">Pseudocode</button>
+      </div>
+      <!-- Engine tabs -->
+      <div class="export-section-label" style="margin-top:8px">Game Engines</div>
+      <div class="export-tabs">
+        <button class="etab engine-tab" data-lang="roblox"  style="border-color:#00A2FF;color:#00A2FF">🟦 Roblox</button>
+        <button class="etab engine-tab" data-lang="unity"   style="border-color:#AAAAAA;color:#AAAAAA">⬜ Unity</button>
+        <button class="etab engine-tab" data-lang="unreal"  style="border-color:#0050A0;color:#88CCFF">🔵 Unreal</button>
+      </div>
+
+      <pre class="code-out" id="codeOutput">// Your exported code will appear here</pre>
+
+      <!-- Auto-import panel -->
+      <div class="auto-import-bar" id="autoImportBar" style="display:none">
+        <div class="ai-info" id="aiInfo"></div>
+        <div class="ai-actions">
+          <input type="text" id="aiPathInput" placeholder="Project folder path (optional)" class="ai-path-input">
+          <button class="mbtn green" id="autoImportBtn">⬆ Auto Import to Engine</button>
+        </div>
+      </div>
+
+      <div class="export-actions">
+        <button class="mbtn green"  id="copyCode">📋 Copy</button>
+        <button class="mbtn"        id="downloadCode">⬇ Download</button>
+        <button class="mbtn accent" id="regenerateCode">🔄 Regenerate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Custom Chip Builder -->
+<div class="modal-overlay" id="customChipModal" style="display:none">
+  <div class="modal modal-wide">
+    <div class="modal-hdr"><h2>✚ Create Custom Chip</h2><button class="mclose" id="closeCustomChip">✕</button></div>
+    <div class="modal-body">
+      <div class="cc-layout">
+        <div class="cc-left">
+          <div class="mgroup"><h3>Chip Info</h3>
+            <label class="mrow"><span>Name</span><input type="text" id="ccName" value="My Chip" style="flex:1"></label>
+            <label class="mrow"><span>Category</span>
+              <input type="text" id="ccCategory" value="Custom" list="ccCatList" style="flex:1">
+              <datalist id="ccCatList"></datalist>
+            </label>
+            <label class="mrow"><span>Color</span><input type="color" id="ccColor" value="#FF44FF"></label>
+            <label class="mrow"><span>Description</span><textarea id="ccDesc" rows="2" style="flex:1;resize:vertical"></textarea></label>
+          </div>
+        </div>
+        <div class="cc-right">
+          <div class="mgroup">
+            <h3>Input Ports <button class="cc-add-port" id="ccAddInput">+ Add</button></h3>
+            <div class="cc-ports-list" id="ccInputsList"></div>
+          </div>
+          <div class="mgroup">
+            <h3>Output Ports <button class="cc-add-port" id="ccAddOutput">+ Add</button></h3>
+            <div class="cc-ports-list" id="ccOutputsList"></div>
+          </div>
+        </div>
+      </div>
+      <div class="export-actions">
+        <button class="mbtn green" id="saveCustomChipBtn">✚ Create Chip</button>
+        <button class="mbtn" id="cancelCustomChip">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Context Menu -->
+<div class="ctx-menu" id="contextMenu" style="display:none">
+  <div class="ctx-item" data-action="duplicate">⧉ Duplicate</div>
+  <div class="ctx-item" data-action="copy">📋 Copy</div>
+  <div class="ctx-div"></div>
+  <div class="ctx-item" data-action="select_wired">⬡ Select Connected</div>
+  <div class="ctx-div"></div>
+  <div class="ctx-item danger" data-action="delete">🗑 Delete</div>
+</div>
+
+<!-- Board Context Menu -->
+<div class="ctx-menu" id="boardContextMenu" style="display:none">
+  <div class="ctx-item" data-baction="rename">✎ Rename</div>
+  <div class="ctx-item" data-baction="duplicate">⧉ Duplicate</div>
+  <div class="ctx-item" data-baction="package">📦 Package as Chip</div>
+  <div class="ctx-div"></div>
+  <div class="ctx-item danger" data-baction="delete">🗑 Delete</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="js/chips.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/canvas.js"></script>
+<script src="js/boards.js"></script>
+<script src="js/simulator.js"></script>
+<script src="js/exporter.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+name: Build & Release RR Circuits
+
+on:
+  # Auto-build when you push a version tag like: git tag v1.2.0 && git push --tags
+  push:
+    tags:
+      - 'v*'
+  # Manual trigger from the Actions tab
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Create as draft release'
+        required: false
+        default: 'false'
+
+# Allow GitHub token to create releases
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build — ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            artifact: Windows
+          - os: macos-latest
+            platform: mac
+            artifact: macOS
+          - os: ubuntu-latest
+            platform: linux
+            artifact: Linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Node.js ───────────────────────────────────────────────────────
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ── Linux dependencies (for electron-builder) ─────────────────────
+      - name: Install Linux build deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libnotify-dev \
+            libnss3 \
+            libxss1 \
+            libxtst6 \
+            xauth \
+            xvfb \
+            rpm \
+            fakeroot
+
+      # ── Install npm packages ───────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Build Windows (.exe installer + portable) ─────────────────────
+      - name: Build Windows
+        if: matrix.os == 'windows-latest'
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Build macOS (.dmg + .zip for arm64 & x64) ────────────────────
+      - name: Build macOS
+        if: matrix.os == 'macos-latest'
+        run: npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # If you have an Apple Developer cert, add these secrets:
+          # CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+
+      # ── Build Linux (.AppImage, .deb, .rpm) ───────────────────────────
+      - name: Build Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Upload build artifacts ────────────────────────────────────────
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ── Create GitHub Release with all builds attached ──────────────────────
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List files
+        run: find artifacts -type f | sort
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: RR Circuits ${{ github.ref_name }}
+          draft: ${{ github.event.inputs.draft == 'true' }}
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+          body: |
+            ## RR Circuits ${{ github.ref_name }}
+
+            ### Downloads
+            | Platform | File | Notes |
+            |----------|------|-------|
+            | 🪟 Windows | `*-Setup.exe` | Installer (recommended) |
+            | 🪟 Windows | `*-Portable.exe` | No install needed |
+            | 🍎 macOS   | `*.dmg` | Drag to Applications |
+            | 🐧 Linux   | `*.AppImage` | chmod +x then run |
+            | 🐧 Linux   | `*.deb` | Debian/Ubuntu |
+            | 🐧 Linux   | `*.rpm` | Fedora/RHEL |
+
+            ### First Run Notes
+            - **macOS**: If Gatekeeper blocks it, right-click → Open → Open
+            - **Linux AppImage**: `chmod +x RR-Circuits-*.AppImage && ./RR-Circuits-*.AppImage`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

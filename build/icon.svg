@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="#080F1A"/>
+
+  <!-- Grid dots -->
+  <g fill="#1E3050" opacity="0.6">
+    <circle cx="100" cy="100" r="6"/>
+    <circle cx="200" cy="100" r="6"/>
+    <circle cx="300" cy="100" r="6"/>
+    <circle cx="400" cy="100" r="6"/>
+    <circle cx="100" cy="200" r="6"/>
+    <circle cx="400" cy="200" r="6"/>
+    <circle cx="100" cy="300" r="6"/>
+    <circle cx="400" cy="300" r="6"/>
+    <circle cx="100" cy="400" r="6"/>
+    <circle cx="200" cy="400" r="6"/>
+    <circle cx="300" cy="400" r="6"/>
+    <circle cx="400" cy="400" r="6"/>
+  </g>
+
+  <!-- Left chip -->
+  <rect x="60" y="190" width="140" height="120" rx="12" fill="#12213A" stroke="#1E3050" stroke-width="2"/>
+  <rect x="60" y="190" width="140" height="28" rx="12" fill="#0D1B30"/>
+  <rect x="60" y="206" width="140" height="12" rx="0" fill="#0D1B30"/>
+  <rect x="60" y="190" width="4" height="120" rx="2" fill="#4A9EFF"/>
+  <text x="88" y="210" fill="#D8E8FF" font-family="sans-serif" font-size="14" font-weight="700">Add</text>
+  <!-- Input ports -->
+  <circle cx="60" cy="235" r="7" fill="#080F1A" stroke="#4A9EFF" stroke-width="2"/>
+  <circle cx="60" cy="260" r="7" fill="#080F1A" stroke="#4A9EFF" stroke-width="2"/>
+  <!-- Output port -->
+  <circle cx="200" cy="247" r="7" fill="#4A9EFF"/>
+
+  <!-- Wire -->
+  <path d="M207 247 C240 247 270 230 300 230" stroke="#4A9EFF" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Right chip (If) -->
+  <rect x="300" y="170" width="150" height="150" rx="12" fill="#12213A" stroke="#1E3050" stroke-width="2"/>
+  <rect x="300" y="170" width="150" height="28" rx="12" fill="#0D1B30"/>
+  <rect x="300" y="186" width="150" height="12" rx="0" fill="#0D1B30"/>
+  <rect x="300" y="170" width="4" height="150" rx="2" fill="#FF8C00"/>
+  <text x="330" y="190" fill="#D8E8FF" font-family="sans-serif" font-size="14" font-weight="700">If</text>
+  <!-- Exec input port (arrow shape) -->
+  <polygon points="300,212 315,220 300,228" fill="#FF8C00"/>
+  <!-- Bool input -->
+  <circle cx="300" cy="250" r="7" fill="#080F1A" stroke="#FF4455" stroke-width="2"/>
+  <!-- Exec output ports -->
+  <polygon points="450,212 435,220 450,228" fill="#FF8C00"/>
+  <polygon points="450,248 435,256 450,264" fill="#FF8C00"/>
+
+  <!-- Lightning bolt logo -->
+  <path d="M248 80 L220 170 L248 155 L225 240 L285 130 L255 145 Z" fill="#FF8C00" opacity="0.9"/>
+</svg>
