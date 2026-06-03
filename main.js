@@ -4,9 +4,69 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron')
 const path  = require('path');
 const fs    = require('fs');
 const os    = require('os');
+const http  = require('http');
 
 // Keep a global reference so the window isn't garbage collected
 let mainWindow;
+
+// ── Engine Connect HTTP Server ────────────────────────────────────────────────
+// Roblox Studio plugin polls this. Port 9001 on localhost only (safe).
+const engineCode = { roblox: null, unity: null, unreal: null };
+let engineServer = null;
+
+function startEngineServer() {
+  if (engineServer) return;
+
+  engineServer = http.createServer((req, res) => {
+    // CORS headers so browser-based tools can also query
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Content-Type', 'application/json');
+
+    if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
+
+    if (req.url === '/api/code/roblox') {
+      res.end(JSON.stringify({
+        code: engineCode.roblox || '-- No code yet. Export from RR Circuits first.',
+        ts: Date.now(),
+      }));
+    } else if (req.url === '/api/code/unity') {
+      res.end(JSON.stringify({ code: engineCode.unity || '// No code yet.', ts: Date.now() }));
+    } else if (req.url === '/api/code/unreal') {
+      res.end(JSON.stringify({ code: engineCode.unreal || '// No code yet.', ts: Date.now() }));
+    } else if (req.url === '/api/status') {
+      res.end(JSON.stringify({ active: true, version: app.getVersion(), ts: Date.now() }));
+    } else {
+      res.writeHead(404);
+      res.end(JSON.stringify({ error: 'Not found' }));
+    }
+  });
+
+  engineServer.listen(9001, '127.0.0.1', () => {
+    console.log('[RR Circuits] Engine server → http://localhost:9001');
+  });
+
+  engineServer.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      console.log('[RR Circuits] Port 9001 busy — engine server not started');
+    }
+  });
+}
+
+// IPC: renderer pushes new code for an engine
+ipcMain.handle('engine-set-code', (_, { engine, code }) => {
+  engineCode[engine] = code;
+  return { ok: true };
+});
+
+// IPC: renderer asks for server status
+ipcMain.handle('engine-status', () => ({
+  running: !!engineServer,
+  port: 9001,
+  hasRoblox: !!engineCode.roblox,
+  hasUnity:  !!engineCode.unity,
+  hasUnreal: !!engineCode.unreal,
+}));
 
 // ── Window creation ────────────────────────────────────────────────────────
 function createWindow() {
@@ -44,6 +104,7 @@ function createWindow() {
 
 // ── App lifecycle ──────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+  startEngineServer();
   buildMenu();
   createWindow();
 

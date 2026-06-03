@@ -69,6 +69,7 @@
         <span class="proj-name" id="projectName" contenteditable="true" spellcheck="false">Untitled Circuit</span>
       </div>
       <button class="hbtn accent" id="exportBtn">⬆ Export Code</button>
+      <button class="hbtn" id="engineConnectBtn" title="Connect to Roblox, Unity, Unreal">🔌 Engine Connect</button>
     </div>
     <div class="header-right">
       <span class="user-pill" id="userPill">👤 <span id="userLabel">User</span></span>
@@ -320,6 +321,125 @@
   <div class="ctx-item danger" data-baction="delete">🗑 Delete</div>
 </div>
 
+<!-- Engine Connect Modal -->
+<div class="modal-overlay" id="engineModal" style="display:none">
+  <div class="modal modal-wide">
+    <div class="modal-hdr">
+      <h2>🔌 Engine Connect</h2>
+      <button class="mclose" id="closeEngine">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Server status bar -->
+      <div class="ec-status-bar">
+        <span class="ec-dot" id="ecDot">●</span>
+        <span id="ecStatusText">Local server: checking…</span>
+        <span class="ec-port">localhost:9001</span>
+      </div>
+
+      <!-- Tabs -->
+      <div class="ec-tabs">
+        <button class="ec-tab active" data-ec="roblox">🟦 Roblox Studio</button>
+        <button class="ec-tab"        data-ec="unity">⬜ Unity</button>
+        <button class="ec-tab"        data-ec="unreal">🔵 Unreal Engine</button>
+      </div>
+
+      <!-- ══ Roblox ══ -->
+      <div class="ec-panel" id="ec-roblox">
+        <div class="ec-info">
+          <p>The <strong>RRCircuits.lua</strong> plugin connects Roblox Studio to this app.
+          It polls <code>localhost:9001</code> and auto-inserts your circuit as a script.</p>
+        </div>
+        <div class="ec-steps">
+          <div class="ec-step"><span class="ec-num">1</span>
+            <div>Download the plugin and save it to your Roblox Studio plugins folder<br>
+            <small style="color:var(--text3)">Windows: <code>%LOCALAPPDATA%\Roblox\Plugins\</code></small></div>
+            <button class="mbtn green" id="ecDownloadPlugin">⬇ Download RRCircuits.lua</button>
+          </div>
+          <div class="ec-step"><span class="ec-num">2</span>
+            <div>In Roblox Studio: <strong>File → Studio Settings → Security</strong><br>
+            Enable <strong>Allow HTTP Requests</strong> ✓</div>
+          </div>
+          <div class="ec-step"><span class="ec-num">3</span>
+            <div>Choose script type and where to insert it:</div>
+            <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+              <select id="ecRobloxType" class="ec-select">
+                <option value="Script">Script (Server)</option>
+                <option value="LocalScript">LocalScript (Client)</option>
+                <option value="ModuleScript">ModuleScript</option>
+              </select>
+              <select id="ecRobloxParent" class="ec-select">
+                <option>ServerScriptService</option>
+                <option>ReplicatedStorage</option>
+                <option>StarterPlayerScripts</option>
+                <option>StarterGui</option>
+              </select>
+            </div>
+          </div>
+          <div class="ec-step"><span class="ec-num">4</span>
+            <div>Click <strong>Push to Roblox</strong> — the plugin will pick it up automatically.</div>
+            <button class="mbtn green" id="ecPushRoblox">📡 Push to Roblox Studio</button>
+          </div>
+        </div>
+        <div class="ec-live-status" id="ecRobloxLive">
+          Waiting — start the plugin in Roblox Studio first
+        </div>
+      </div>
+
+      <!-- ══ Unity ══ -->
+      <div class="ec-panel" id="ec-unity" style="display:none">
+        <div class="ec-info">
+          <p>RR Circuits writes a <strong>.cs file</strong> directly into your Unity project's
+          <code>Assets/Scripts/</code> folder. Unity detects the change and auto-imports it.</p>
+          <p>No plugin needed — Unity watches for file changes automatically.</p>
+        </div>
+        <div class="ec-steps">
+          <div class="ec-step"><span class="ec-num">1</span>
+            <div>Point to your Unity project's Assets folder:</div>
+            <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+              <input type="text" id="ecUnityPath" class="ec-path-input" placeholder="e.g. C:\Projects\MyGame\Assets\Scripts">
+              <button class="mbtn" id="ecUnityBrowse">📁 Browse</button>
+            </div>
+          </div>
+          <div class="ec-step"><span class="ec-num">2</span>
+            <div>Push your circuit as a C# MonoBehaviour:</div>
+            <button class="mbtn green" id="ecPushUnity">⬆ Write to Unity Project</button>
+          </div>
+        </div>
+        <div class="ec-live-status" id="ecUnityLive">
+          No Unity project path set yet
+        </div>
+      </div>
+
+      <!-- ══ Unreal ══ -->
+      <div class="ec-panel" id="ec-unreal" style="display:none">
+        <div class="ec-info">
+          <p>RR Circuits writes <strong>.cpp and .h files</strong> directly into your Unreal
+          project's <code>Source/</code> folder. Use Unreal's <em>Live Coding</em> or
+          regenerate project files to compile.</p>
+        </div>
+        <div class="ec-steps">
+          <div class="ec-step"><span class="ec-num">1</span>
+            <div>Point to your Unreal project's Source folder:</div>
+            <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+              <input type="text" id="ecUnrealPath" class="ec-path-input" placeholder="e.g. C:\Projects\MyGame\Source\MyGame">
+              <button class="mbtn" id="ecUnrealBrowse">📁 Browse</button>
+            </div>
+          </div>
+          <div class="ec-step"><span class="ec-num">2</span>
+            <div>Push your circuit as Unreal C++ (Actor + header):</div>
+            <button class="mbtn green" id="ecPushUnreal">⬆ Write to Unreal Project</button>
+          </div>
+        </div>
+        <div class="ec-live-status" id="ecUnrealLive">
+          No Unreal project path set yet
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -329,6 +449,7 @@
 <script src="js/boards.js"></script>
 <script src="js/simulator.js"></script>
 <script src="js/exporter.js"></script>
+<script src="js/engine-connect.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

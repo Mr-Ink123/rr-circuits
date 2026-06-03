@@ -28,6 +28,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuZoomReset: (cb) => ipcRenderer.on('menu-zoom-reset', () => cb()),
   onMenuFrameAll:  (cb) => ipcRenderer.on('menu-frame-all',  () => cb()),
 
+  // ── Engine Connect ─────────────────────────────────────────────────
+  engineSetCode: (engine, code) => ipcRenderer.invoke('engine-set-code', { engine, code }),
+  engineStatus:  ()             => ipcRenderer.invoke('engine-status'),
+
   // ── Platform ───────────────────────────────────────────────────────
   platform: process.platform,
   isElectron: true,

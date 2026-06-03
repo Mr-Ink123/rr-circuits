@@ -46,6 +46,8 @@ const App = (() => {
     tryRestoreSession();
     // Make sure simulate mode is always OFF when the app opens
     if (typeof Simulator !== 'undefined') Simulator.stop(true);
+    // Init engine connect
+    if (typeof EngineConnect !== 'undefined') EngineConnect.init();
   }
 
   // ── LOGIN ─────────────────────────────────────────────────────────────────
