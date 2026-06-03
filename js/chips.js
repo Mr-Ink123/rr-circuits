@@ -334,7 +334,8 @@ const CHIP_REGISTRY = [
   chip('screen_hide', 'Screen Hide',           'UI',  [E('Run'), P('Player'), O('Screen')], [E('Out')]),
   chip('img_set',     'Image Set Sprite',      'UI',  [E('Run'), O('Image'), O('Sprite')], [E('Out')]),
   chip('img_color',   'Image Set Color',       'UI',  [E('Run'), O('Image'), C('Color')], [E('Out')]),
-  chip('sbtn_click',  'Screen Button Clicked', 'UI',  [O('Screen Button')], [E('Out'), P('Player')]),
+  chip('sbtn_click',  'Screen Button Clicked', 'UI',  [O('Screen Button')], [E('Out'), P('Player')],
+    { isSceneObject:true, sceneObjectType:'ui_button',   sceneDefaults:{text:'Button',size:'200,50',pos:'0.5,-100,0.9,0',bgColor:'0066FF',textColor:'FFFFFF',parent:'RRGui'} }),
   chip('slider_get',  'Slider Get Value',      'UI',  [O('Slider')], [F('Value')]),
   chip('slider_chg',  'Slider Value Changed',  'UI',  [O('Slider')], [E('Out'), F('Value'), P('Player')]),
 
@@ -409,24 +410,29 @@ const CHIP_REGISTRY = [
     [B('Is Alive')]),
 
   // ═══════════════════ VOLUMES ═══════════════════
-  // — Trigger Volume —
-  chip('trig_enter',    'Trigger Volume Player Entered',        'Volumes', [O('Trigger')], [E('Out'), P('Player')]),
-  chip('trig_exit',     'Trigger Volume Player Exited',         'Volumes', [O('Trigger')], [E('Out'), P('Player')]),
+  // — Trigger Volume (scene object: invisible zone that fires when players/objects enter) —
+  chip('trig_enter',    'Trigger Volume Player Entered',        'Volumes', [O('Trigger')], [E('Out'), P('Player')],
+    { isSceneObject:true, sceneObjectType:'trigger_vol',  sceneDefaults:{pos:'0,4,0',size:'10,8,10',color:'FF6600',opacity:'0.7'} }),
+  chip('trig_exit',     'Trigger Volume Player Exited',         'Volumes', [O('Trigger')], [E('Out'), P('Player')],
+    { isSceneObject:true, sceneObjectType:'trigger_vol',  sceneDefaults:{pos:'0,4,0',size:'10,8,10',color:'FF6600',opacity:'0.7'} }),
   chip('trig_players',  'Trigger Volume Get Players',           'Volumes', [O('Trigger')], [L('Players'), I('Count')]),
   chip('trig_objects',  'Trigger Volume Get Objects',           'Volumes', [O('Trigger')], [L('Objects')]),
   chip('trig_objcount', 'Trigger Volume Get Total Objects',     'Volumes', [O('Trigger')], [I('Count')]),
   chip('trig_setactive','Trigger Volume Set Active',            'Volumes', [E('Run'), O('Trigger'), B('Active', true)], [E('Out')]),
 
-  // — Interaction Volume —
-  chip('ivol_interact', 'Interaction Volume Player Interacted', 'Volumes', [O('Volume')], [E('Out'), P('Player')]),
-  chip('ivol_enter',    'Interaction Volume Player Entered',    'Volumes', [O('Volume')], [E('Out'), P('Player')]),
+  // — Interaction Volume (scene object: ProximityPrompt zone) —
+  chip('ivol_interact', 'Interaction Volume Player Interacted', 'Volumes', [O('Volume')], [E('Out'), P('Player')],
+    { isSceneObject:true, sceneObjectType:'interact_vol', sceneDefaults:{pos:'0,2,0',size:'6,4,6',color:'00CCFF',promptText:'Interact',maxDist:'8'} }),
+  chip('ivol_enter',    'Interaction Volume Player Entered',    'Volumes', [O('Volume')], [E('Out'), P('Player')],
+    { isSceneObject:true, sceneObjectType:'interact_vol', sceneDefaults:{pos:'0,2,0',size:'6,4,6',color:'00CCFF',promptText:'Interact',maxDist:'8'} }),
   chip('ivol_exit',     'Interaction Volume Player Exited',     'Volumes', [O('Volume')], [E('Out'), P('Player')]),
   chip('ivol_players',  'Interaction Volume Get Players',       'Volumes', [O('Volume')], [L('Players'), I('Count')]),
   chip('ivol_total',    'Interaction Volume Get Total Objects', 'Volumes', [O('Volume')], [I('Count')]),
   chip('ivol_enable',   'Interaction Volume Set Enabled',       'Volumes', [E('Run'), O('Volume'), B('Enabled', true)], [E('Out')]),
 
-  // — Handle Volume (grab/release) —
-  chip('hvol_enter',    'Handle Volume Player Entered',         'Volumes', [O('Volume')], [E('Out'), P('Player')]),
+  // — Handle Volume (scene object: grab/release detection) —
+  chip('hvol_enter',    'Handle Volume Player Entered',         'Volumes', [O('Volume')], [E('Out'), P('Player')],
+    { isSceneObject:true, sceneObjectType:'handle_vol',   sceneDefaults:{pos:'0,2,0',size:'4,4,4',color:'AA66FF'} }),
   chip('hvol_exit',     'Handle Volume Player Exited',          'Volumes', [O('Volume')], [E('Out'), P('Player')]),
   chip('hvol_grabbed',  'Handle Volume Object Grabbed',         'Volumes', [O('Volume')], [E('Out'), O('Object'), P('Player')]),
   chip('hvol_released', 'Handle Volume Object Released',        'Volumes', [O('Volume')], [E('Out'), O('Object'), P('Player')]),
@@ -441,20 +447,25 @@ const CHIP_REGISTRY = [
   chip('score_set',    'Score Zone Set Points',                'Volumes', [E('Run'), O('Zone'), I('Points', 1)], [E('Out')]),
 
   // ═══════════════════ GADGETS ═══════════════════
-  // — Button —
-  chip('btn_pressed',   'Button Pressed',              'Gadgets', [O('Button')], [E('Out'), P('Player')]),
-  chip('btn_released',  'Button Released',             'Gadgets', [O('Button')], [E('Out'), P('Player')]),
+  // — Button (scene object: creates a clickable button in the game world) —
+  chip('btn_pressed',   'Button Pressed',              'Gadgets', [O('Button')], [E('Out'), P('Player')],
+    { isSceneObject:true, sceneObjectType:'button',     sceneDefaults:{pos:'0,1,0',size:'4,2,4',color:'0066FF',text:'Button',maxDist:'32'} }),
+  chip('btn_released',  'Button Released',             'Gadgets', [O('Button')], [E('Out'), P('Player')],
+    { isSceneObject:true, sceneObjectType:'button',     sceneDefaults:{pos:'0,1,0',size:'4,2,4',color:'0066FF',text:'Button',maxDist:'32'} }),
   chip('btn_set_en',    'Button Set Enabled',          'Gadgets', [E('Run'), O('Button'), B('Enabled', true)], [E('Out')]),
   chip('btn_set_color', 'Button Set Color',            'Gadgets', [E('Run'), O('Button'), C('Color')], [E('Out')]),
 
-  // — Toggle Button —
-  chip('tbtn_on',       'Toggle Button Turned On',     'Gadgets', [O('Toggle Button')], [E('Out'), P('Player')]),
-  chip('tbtn_off',      'Toggle Button Turned Off',    'Gadgets', [O('Toggle Button')], [E('Out'), P('Player')]),
+  // — Toggle Button (scene object) —
+  chip('tbtn_on',       'Toggle Button Turned On',     'Gadgets', [O('Toggle Button')], [E('Out'), P('Player')],
+    { isSceneObject:true, sceneObjectType:'toggle_btn', sceneDefaults:{pos:'0,1,0',size:'4,2,4',color:'FF8800',text:'Toggle',maxDist:'32'} }),
+  chip('tbtn_off',      'Toggle Button Turned Off',    'Gadgets', [O('Toggle Button')], [E('Out'), P('Player')],
+    { isSceneObject:true, sceneObjectType:'toggle_btn', sceneDefaults:{pos:'0,1,0',size:'4,2,4',color:'FF8800',text:'Toggle',maxDist:'32'} }),
   chip('tbtn_getstate', 'Toggle Button Get State',     'Gadgets', [O('Toggle Button')], [B('Is On')]),
   chip('tbtn_setstate', 'Toggle Button Set State',     'Gadgets', [E('Run'), O('Toggle Button'), B('On', true)], [E('Out')]),
 
-  // — Dial / Slider —
-  chip('dial_changed',  'Dial Value Changed',          'Gadgets', [O('Dial')], [E('Out'), F('Value')]),
+  // — Dial / Slider (scene object) —
+  chip('dial_changed',  'Dial Value Changed',          'Gadgets', [O('Dial')], [E('Out'), F('Value')],
+    { isSceneObject:true, sceneObjectType:'dial',       sceneDefaults:{pos:'0,1,0',size:'2,2,2',color:'888888'} }),
   chip('dial_get',      'Dial Get Value',              'Gadgets', [O('Dial')], [F('Value')]),
   chip('dial_set',      'Dial Set Value',              'Gadgets', [E('Run'), O('Dial'), F('Value', 0)], [E('Out')]),
 

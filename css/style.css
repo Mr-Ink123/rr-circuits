@@ -637,6 +637,13 @@ body{
 }
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
+/* Scene object config panel on chips */
+.chip-scene-cfg{
+  padding:6px 8px;
+  background:rgba(0,0,0,0.25);
+  border-bottom:1px solid var(--chip-bd);
+}
+
 /* ═══════ ENGINE CONNECT ═══════ */
 .ec-status-bar{
   display:flex;align-items:center;gap:8px;

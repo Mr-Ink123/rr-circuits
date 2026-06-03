@@ -281,9 +281,39 @@ const EngineConnect = (() => {
     return [...(isWorld ? world : []), ...(extra[type] || [])];
   }
 
+  // ── Get scene objects from CANVAS (chips with isSceneObject:true) ─────────
+  function getCanvasSceneNodes() {
+    const { nodes } = Canvas.getCircuitData();
+    return nodes.filter(n => {
+      const d = getChipDef(n.chipId);
+      return d?.isSceneObject;
+    }).map(n => {
+      const d = getChipDef(n.chipId);
+      return {
+        id:   n.id,
+        name: n.sceneName || (d.name.replace(/\s+/g,'_') + '_' + n.id),
+        type: d.sceneObjectType,
+        config: { ...d.sceneDefaults, ...(n.sceneConfig || {}) },
+      };
+    });
+  }
+
   // ── Code generation ───────────────────────────────────────────────────────
   function generateSceneCode() {
-    if (!sceneObjects.length) return '';
+    // Use canvas chips + any manually added modal objects
+    const canvasObjs = getCanvasSceneNodes();
+    const allObjs    = [...canvasObjs, ...sceneObjects.filter(mo => !canvasObjs.find(co => co.name === mo.name))];
+    if (!allObjs.length) return '';
+    // Temporarily override sceneObjects for the generator
+    const saved = sceneObjects;
+    sceneObjects  = allObjs;
+    const result  = _generateRobloxCode(allObjs);
+    sceneObjects  = saved;
+    return result;
+  }
+
+  function _generateRobloxCode(objList) {
+    if (!objList.length) return '';
 
     const lines = [];
     lines.push('\n-- ═══════════════════════════════════════════════════════════');
@@ -297,7 +327,7 @@ const EngineConnect = (() => {
     lines.push('');
 
     // Create world objects
-    sceneObjects.filter(o => OBJ_TYPES[o.type]?.category === 'world').forEach(obj => {
+    objList.filter(o => OBJ_TYPES[o.type]?.category === 'world').forEach(obj => {
       const c   = obj.config;
       const pos = (c.pos  || '0,2,0').split(',').map(v=>parseFloat(v)||0);
       const sz  = (c.size || '4,4,4').split(',').map(v=>parseFloat(v)||4);
@@ -382,7 +412,7 @@ const EngineConnect = (() => {
     });
 
     // Create ScreenGuis first, then their children
-    const guis = sceneObjects.filter(o => o.type === 'screen_gui');
+    const guis = objList.filter(o => o.type === 'screen_gui');
     guis.forEach(gui => {
       lines.push(`    -- 🖥 ScreenGui: ${gui.name}`);
       lines.push(`    local ${gui.name} = Instance.new("ScreenGui")`);
@@ -395,7 +425,7 @@ const EngineConnect = (() => {
     });
 
     // UI children
-    const uiChildren = sceneObjects.filter(o => OBJ_TYPES[o.type]?.category === 'ui' && o.type !== 'screen_gui');
+    const uiChildren = objList.filter(o => OBJ_TYPES[o.type]?.category === 'ui' && o.type !== 'screen_gui');
     uiChildren.forEach(obj => {
       const c = obj.config;
       const sz = (c.size || '200,50').split(',').map(v => parseFloat(v)||100);
@@ -486,7 +516,7 @@ const EngineConnect = (() => {
       lines.push('');
     });
 
-    lines.push('    print("[RR Circuits] Scene ready — ' + sceneObjects.length + ' object(s) created")');
+    lines.push('    print("[RR Circuits] Scene ready — ' + objList.length + ' object(s) created")');
     lines.push('    return created');
     lines.push('end');
     lines.push('');
@@ -496,7 +526,7 @@ const EngineConnect = (() => {
     lines.push('');
     lines.push('-- ═══ Event Connections ═══');
 
-    sceneObjects.forEach(obj => {
+    objList.forEach(obj => {
       const def = OBJ_TYPES[obj.type];
       if (!def || !def.event) return;
 
@@ -600,7 +630,9 @@ const EngineConnect = (() => {
 
   // ── Unity Scene Code Generator ───────────────────────────────────────────
   function generateUnityScene() {
-    if (!sceneObjects.length) return '';
+    const canvasObjs = getCanvasSceneNodes();
+    const objList    = [...canvasObjs, ...sceneObjects.filter(mo => !canvasObjs.find(co => co.name === mo.name))];
+    if (!objList.length) return '';
     const L = [];
     const projName = (document.getElementById('projectName')?.textContent.trim()||'RRCircuit').replace(/\s+/g,'');
 
@@ -615,7 +647,7 @@ const EngineConnect = (() => {
     L.push('    private void SetupScene()');
     L.push('    {');
     L.push('        // Create Canvas for all UI elements');
-    const hasUI = sceneObjects.some(o => OBJ_TYPES[o.type]?.category === 'ui');
+    const hasUI = objList.some(o => OBJ_TYPES[o.type]?.category === 'ui');
     if (hasUI) {
       L.push('        var canvasGO = new GameObject("RRCanvas");');
       L.push('        _canvas = canvasGO.AddComponent<Canvas>();');
@@ -625,7 +657,7 @@ const EngineConnect = (() => {
     }
     L.push('');
 
-    sceneObjects.forEach(obj => {
+    objList.forEach(obj => {
       const c   = obj.config;
       const pos = (c.pos  || '0,2,0').split(',').map(v=>parseFloat(v)||0);
       const sz  = (c.size || '4,4,4').split(',').map(v=>parseFloat(v)||4);
@@ -796,7 +828,9 @@ const EngineConnect = (() => {
 
   // ── Unreal Scene Code Generator ───────────────────────────────────────────
   function generateUnrealScene() {
-    if (!sceneObjects.length) return '';
+    const canvasObjs = getCanvasSceneNodes();
+    const objList    = [...canvasObjs, ...sceneObjects.filter(mo => !canvasObjs.find(co => co.name === mo.name))];
+    if (!objList.length) return '';
     const L = [];
     const projName = (document.getElementById('projectName')?.textContent.trim()||'RRCircuit').replace(/\s+/g,'');
 
@@ -812,7 +846,7 @@ const EngineConnect = (() => {
     L.push('    FActorSpawnParameters SP;');
     L.push('');
 
-    sceneObjects.forEach(obj => {
+    objList.forEach(obj => {
       const c   = obj.config;
       const pos = (c.pos  || '0,2,0').split(',').map(v=>parseFloat(v)*100||0);  // cm in Unreal
       const sz  = (c.size || '4,4,4').split(',').map(v=>parseFloat(v)*50||200);
@@ -875,8 +909,8 @@ const EngineConnect = (() => {
 
     // Event callbacks
     L.push('// ═══ Event Callbacks ═══');
-    const usedEvents = new Set(sceneObjects.map(o => OBJ_TYPES[o.type]?.event).filter(Boolean));
-    const trigObjs   = sceneObjects.filter(o => o.type === 'trigger_vol' || o.type === 'interact_vol');
+    const usedEvents = new Set(objList.map(o => OBJ_TYPES[o.type]?.event).filter(Boolean));
+    const trigObjs   = objList.filter(o => o.type === 'trigger_vol' || o.type === 'interact_vol');
 
     if (usedEvents.has('btn_pressed')) {
       L.push(`void A${projName}::OnButtonClicked(AActor* ClickedActor, FKey ButtonPressed) {`);
@@ -914,7 +948,8 @@ const EngineConnect = (() => {
 
     if (typeof IS_ELECTRON !== 'undefined' && IS_ELECTRON) {
       await window.electronAPI.engineSetCode('roblox', combined);
-      setLiveStatus('roblox', `✓ ${sceneObjects.length} scene object(s) + circuit pushed — plugin will apply in ~2s`, true);
+      const sceneCount = getCanvasSceneNodes().length + sceneObjects.length;
+      setLiveStatus('roblox', `✓ ${sceneCount} scene object(s) + circuit pushed — plugin will apply in ~2s`, true);
       Canvas.showToast('📡 Pushed to Roblox Studio!');
     } else {
       const blob = new Blob([combined], { type: 'text/plain' });
@@ -928,16 +963,127 @@ const EngineConnect = (() => {
 
   // ── Download plugin ───────────────────────────────────────────────────────
   function downloadPlugin() {
-    fetch('/plugins/RRCircuits.lua')
-      .then(r => r.text())
-      .then(text => {
-        const blob = new Blob([text], { type: 'text/plain' });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href = url; a.download = 'RRCircuits.lua'; a.click();
-        URL.revokeObjectURL(url);
-        Canvas.showToast('Plugin downloaded!');
-      });
+    // Try relative path (works in dev server); fall back to inline content for Electron/production
+    const tryFetch = () => fetch('./plugins/RRCircuits.lua').then(r => {
+      if (!r.ok) throw new Error('not found');
+      return r.text();
+    });
+
+    tryFetch().catch(() =>
+      // Inline fallback: fetch from the Electron app path
+      typeof IS_ELECTRON !== 'undefined' && IS_ELECTRON && window.electronAPI
+        ? window.electronAPI.readFilePath({ filePath: require ? null : './plugins/RRCircuits.lua' })
+            .then(r => r.content || Promise.reject())
+        : Promise.reject()
+    ).then(text => {
+      _doPluginDownload(text);
+    }).catch(() => {
+      // Final fallback: just download a minimal working stub
+      Canvas.showToast('Generating plugin...');
+      _doPluginDownload(_getPluginStub());
+    });
+  }
+
+  function _doPluginDownload(text) {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'RRCircuits.lua'; a.click();
+    URL.revokeObjectURL(url);
+    Canvas.showToast('✅ RRCircuits.lua downloaded! Install it in your Plugins folder.');
+  }
+
+  function _getPluginStub() {
+    // Minimal working plugin that polls localhost:9001 — always available even if file fetch fails
+    return `--[[ RR Circuits - Roblox Studio Plugin
+  Install: %LOCALAPPDATA%\\Roblox\\Plugins\\RRCircuits.lua
+  Enable:  Studio Settings → Security → Allow HTTP Requests ✓
+--]]
+local HttpService = game:GetService("HttpService")
+local RunService  = game:GetService("RunService")
+local toolbar = plugin:CreateToolbar("RR Circuits")
+local btn     = toolbar:CreateButton("RR Circuits","Connect to RR Circuits on your PC","")
+local widget  = plugin:CreateDockWidgetPluginGui("RRC",
+    DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Right,false,false,240,300,200,200))
+widget.Title = "RR Circuits"
+
+local frame = Instance.new("Frame",widget)
+frame.Size  = UDim2.new(1,0,1,0)
+frame.BackgroundColor3 = Color3.fromRGB(8,18,34)
+local layout = Instance.new("UIListLayout",frame)
+layout.Padding = UDim.new(0,8)
+local pad = Instance.new("UIPadding",frame)
+pad.PaddingTop = UDim.new(0,10); pad.PaddingLeft = UDim.new(0,10); pad.PaddingRight = UDim.new(0,10)
+
+local function makeBtn(t,col,o)
+    local b=Instance.new("TextButton",frame)
+    b.Size=UDim2.new(1,0,0,36); b.BackgroundColor3=col; b.TextColor3=Color3.new(1,1,1)
+    b.Font=Enum.Font.GothamBold; b.TextSize=13; b.Text=t; b.LayoutOrder=o
+    Instance.new("UICorner",b).CornerRadius=UDim.new(0,6)
+    return b
+end
+local statusLbl = Instance.new("TextLabel",frame)
+statusLbl.Size=UDim2.new(1,0,0,20); statusLbl.BackgroundTransparency=1
+statusLbl.TextColor3=Color3.fromRGB(200,60,60); statusLbl.Font=Enum.Font.Gotham
+statusLbl.TextSize=11; statusLbl.TextXAlignment=Enum.TextXAlignment.Left
+statusLbl.Text="● Disconnected"; statusLbl.LayoutOrder=1
+local connectBtn = makeBtn("▶ Start Listening",Color3.fromRGB(20,120,60),2)
+local pushBtn    = makeBtn("⬆ Push Now",Color3.fromRGB(20,60,140),3)
+local typeLabel  = Instance.new("TextLabel",frame)
+typeLabel.Size=UDim2.new(1,0,0,16); typeLabel.BackgroundTransparency=1
+typeLabel.TextColor3=Color3.fromRGB(100,140,180); typeLabel.Font=Enum.Font.Gotham
+typeLabel.TextSize=10; typeLabel.TextXAlignment=Enum.TextXAlignment.Left
+typeLabel.Text="Script Type: Script → ServerScriptService"; typeLabel.LayoutOrder=4
+local typeCycle = makeBtn("🔄 Change Type/Parent",Color3.fromRGB(30,50,90),5)
+
+local types   = {"Script","LocalScript","ModuleScript"}
+local parents = {"ServerScriptService","ReplicatedStorage","StarterPlayerScripts","StarterGui","Workspace"}
+local ti,pi   = 1,1
+typeCycle.MouseButton1Click:Connect(function()
+    ti = ti % #types + 1
+    if ti == 1 then pi = pi % #parents + 1 end
+    typeLabel.Text = types[ti].." → "..parents[pi]
+end)
+
+local listening = false; local lastCode = ""; local inserted = nil
+local function getParent()
+    local pm = {ServerScriptService=game:GetService("ServerScriptService"),
+        ReplicatedStorage=game:GetService("ReplicatedStorage"),
+        StarterPlayerScripts=game:GetService("StarterPlayer").StarterPlayerScripts,
+        StarterGui=game:GetService("StarterGui"), Workspace=workspace}
+    return pm[parents[pi]] or game:GetService("ServerScriptService")
+end
+local function upsert(code)
+    if inserted and inserted.Parent then inserted.Source=code; return end
+    local p=getParent(); local ex=p:FindFirstChild("RRCircuit"); if ex then ex:Destroy() end
+    local s; if types[ti]=="LocalScript" then s=Instance.new("LocalScript")
+    elseif types[ti]=="ModuleScript" then s=Instance.new("ModuleScript")
+    else s=Instance.new("Script") end
+    s.Name="RRCircuit"; s.Source=code; s.Parent=p; inserted=s
+    print("[RR Circuits] Inserted "..types[ti].." into "..parents[pi])
+end
+local function fetch()
+    local ok,r=pcall(function() return HttpService:GetAsync("http://localhost:9001/api/code/roblox",true) end)
+    if not ok then statusLbl.Text="● Cannot reach localhost:9001"; statusLbl.TextColor3=Color3.fromRGB(200,60,60); return end
+    local ok2,d=pcall(function() return HttpService:JSONDecode(r) end)
+    if not ok2 or not d or not d.code then statusLbl.Text="● Waiting for code..."; return end
+    if d.code~=lastCode then lastCode=d.code; upsert(d.code)
+        statusLbl.Text="● Updated ✓"; statusLbl.TextColor3=Color3.fromRGB(60,220,100)
+    else statusLbl.Text="● Up to date"; statusLbl.TextColor3=Color3.fromRGB(60,220,100) end
+end
+local elapsed=0
+RunService.Heartbeat:Connect(function(dt)
+    if not listening then return end; elapsed=elapsed+dt; if elapsed<1.5 then return end; elapsed=0; fetch()
+end)
+connectBtn.MouseButton1Click:Connect(function()
+    listening=not listening
+    if listening then connectBtn.Text="⏹ Stop"; connectBtn.BackgroundColor3=Color3.fromRGB(140,30,30); fetch()
+    else connectBtn.Text="▶ Start Listening"; connectBtn.BackgroundColor3=Color3.fromRGB(20,120,60)
+        statusLbl.Text="● Stopped"; statusLbl.TextColor3=Color3.fromRGB(200,60,60) end
+end)
+pushBtn.MouseButton1Click:Connect(fetch)
+btn.Click:Connect(function() widget.Enabled=not widget.Enabled end)
+print("[RR Circuits Plugin] Ready")`;
   }
 
   // ── Unity ─────────────────────────────────────────────────────────────────

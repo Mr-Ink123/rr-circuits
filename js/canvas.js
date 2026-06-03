@@ -774,6 +774,88 @@ const Canvas = (() => {
       hdr.appendChild(badge);
     }
 
+    // ── Scene Object chip: object name + position/size/color ─────────────────
+    if (def.isSceneObject) {
+      if (!node.sceneConfig) node.sceneConfig = { ...def.sceneDefaults };
+      if (!node.sceneName)   node.sceneName   = def.name.replace(/\s+/g,'_') + '_1';
+
+      // Name row
+      const snrow = document.createElement('div');
+      snrow.className = 'chip-varname-row';
+      const snicon = document.createElement('span');
+      snicon.style.cssText = 'font-size:10px;color:var(--text3);flex-shrink:0';
+      snicon.title = 'Object name used in game code';
+      snicon.textContent = '📍';
+      const sninput = document.createElement('input');
+      sninput.className   = 'chip-varname-input';
+      sninput.value       = node.sceneName;
+      sninput.placeholder = 'object name...';
+      sninput.addEventListener('change', e => { node.sceneName = e.target.value.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'') || node.sceneName; });
+      sninput.addEventListener('mousedown', e => e.stopPropagation());
+      sninput.addEventListener('click',     e => e.stopPropagation());
+      snrow.appendChild(snicon);
+      snrow.appendChild(sninput);
+      el.appendChild(snrow);
+
+      // Expand/collapse config row
+      const cfgToggle = document.createElement('div');
+      cfgToggle.className = 'chip-varname-row';
+      cfgToggle.style.cssText = 'cursor:pointer;justify-content:center;font-size:9px;color:var(--text3);padding:2px';
+      cfgToggle.textContent = '⚙ Position / Size / Color';
+      cfgToggle.title = 'Click to configure scene object';
+
+      const cfgPanel = document.createElement('div');
+      cfgPanel.className = 'chip-scene-cfg';
+      cfgPanel.style.display = 'none';
+
+      const sceneFields = [
+        { key:'pos',        label:'Position (x,y,z)', type:'text' },
+        { key:'size',       label:'Size (x,y,z)',     type:'text' },
+        { key:'color',      label:'Color',            type:'color' },
+        { key:'text',       label:'Label Text',       type:'text' },
+        { key:'promptText', label:'Prompt Text',      type:'text' },
+        { key:'maxDist',    label:'Max Distance',     type:'number' },
+        { key:'parent',     label:'Parent GUI',       type:'text' },
+      ].filter(f => node.sceneConfig[f.key] !== undefined || def.sceneDefaults?.[f.key] !== undefined);
+
+      sceneFields.forEach(field => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:4px;margin:2px 0';
+        const lbl = document.createElement('span');
+        lbl.style.cssText = 'font-size:9px;color:var(--text3);min-width:70px';
+        lbl.textContent   = field.label;
+        let inp;
+        if (field.type === 'color') {
+          inp = document.createElement('input');
+          inp.type  = 'color';
+          inp.value = '#' + (node.sceneConfig[field.key] || 'AAAAAA').replace('#','');
+          inp.style.cssText = 'width:36px;height:20px;border:1px solid #2a3a55;border-radius:3px;padding:1px;background:none;cursor:pointer';
+          inp.addEventListener('change', e => { node.sceneConfig[field.key] = e.target.value.replace('#',''); });
+        } else {
+          inp = document.createElement('input');
+          inp.type  = field.type === 'number' ? 'number' : 'text';
+          inp.value = node.sceneConfig[field.key] ?? def.sceneDefaults?.[field.key] ?? '';
+          inp.style.cssText = 'flex:1;background:#060e18;border:1px solid #1e3050;color:var(--text);border-radius:3px;padding:2px 5px;font-size:9px;outline:none';
+          inp.addEventListener('change', e => { node.sceneConfig[field.key] = e.target.value; });
+        }
+        inp.addEventListener('mousedown', e => e.stopPropagation());
+        inp.addEventListener('click',     e => e.stopPropagation());
+        row.appendChild(lbl);
+        row.appendChild(inp);
+        cfgPanel.appendChild(row);
+      });
+
+      cfgToggle.addEventListener('click', e => {
+        e.stopPropagation();
+        const open = cfgPanel.style.display === '';
+        cfgPanel.style.display = open ? 'none' : '';
+        cfgToggle.textContent  = open ? '⚙ Position / Size / Color' : '▲ Close Config';
+      });
+
+      el.appendChild(cfgToggle);
+      el.appendChild(cfgPanel);
+    }
+
     // ── Event chip: name + Local/Everyone scope ──────────────────────────────
     if (def.isEvent) {
       const erow = document.createElement('div');
