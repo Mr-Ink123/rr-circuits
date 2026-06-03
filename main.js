@@ -11,7 +11,12 @@ let mainWindow;
 
 // ── Engine Connect HTTP Server ────────────────────────────────────────────────
 // Roblox Studio plugin polls this. Port 9001 on localhost only (safe).
-const engineCode = { roblox: null, unity: null, unreal: null };
+// Stores { code, objects } for each engine
+const engineData = {
+  roblox: { code: null, objects: [] },
+  unity:  { code: null, objects: [] },
+  unreal: { code: null, objects: [] },
+};
 let engineServer = null;
 
 function startEngineServer() {
@@ -27,13 +32,14 @@ function startEngineServer() {
 
     if (req.url === '/api/code/roblox') {
       res.end(JSON.stringify({
-        code: engineCode.roblox || '-- No code yet. Export from RR Circuits first.',
+        code:    engineData.roblox.code    || '-- No code yet. Export from RR Circuits first.',
+        objects: engineData.roblox.objects || [],
         ts: Date.now(),
       }));
     } else if (req.url === '/api/code/unity') {
-      res.end(JSON.stringify({ code: engineCode.unity || '// No code yet.', ts: Date.now() }));
+      res.end(JSON.stringify({ code: engineData.unity.code || '// No code yet.', ts: Date.now() }));
     } else if (req.url === '/api/code/unreal') {
-      res.end(JSON.stringify({ code: engineCode.unreal || '// No code yet.', ts: Date.now() }));
+      res.end(JSON.stringify({ code: engineData.unreal.code || '// No code yet.', ts: Date.now() }));
     } else if (req.url === '/api/status') {
       res.end(JSON.stringify({ active: true, version: app.getVersion(), ts: Date.now() }));
     } else {
@@ -53,9 +59,12 @@ function startEngineServer() {
   });
 }
 
-// IPC: renderer pushes new code for an engine
-ipcMain.handle('engine-set-code', (_, { engine, code }) => {
-  engineCode[engine] = code;
+// IPC: renderer pushes code + scene objects for an engine
+ipcMain.handle('engine-set-code', (_, { engine, code, objects }) => {
+  if (engineData[engine]) {
+    engineData[engine].code    = code;
+    engineData[engine].objects = objects || [];
+  }
   return { ok: true };
 });
 

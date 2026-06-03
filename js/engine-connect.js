@@ -942,23 +942,163 @@ const EngineConnect = (() => {
 
   // ── Push functions ────────────────────────────────────────────────────────
   async function pushRoblox() {
+    // Build the objects manifest from canvas chips
+    const canvasObjs  = getCanvasSceneNodes();
+    const allObjs     = [...canvasObjs, ...sceneObjects.filter(mo => !canvasObjs.find(co => co.name === mo.name))];
+
+    // Generate Lua that REFERENCES pre-created objects (plugin creates them in Studio)
     const circuitCode = Exporter.export('roblox');
-    const sceneCode   = generateSceneCode();
-    const combined    = circuitCode + sceneCode;
+    const refCode     = generateRobloxReferenceCode(allObjs);
+    const combined    = circuitCode + refCode;
+
+    // Build the manifest the plugin uses to create objects in the scene
+    const manifest = allObjs.map(o => ({
+      type: o.type,
+      name: o.name,
+      config: o.config || {},
+    }));
 
     if (typeof IS_ELECTRON !== 'undefined' && IS_ELECTRON) {
-      await window.electronAPI.engineSetCode('roblox', combined);
-      const sceneCount = getCanvasSceneNodes().length + sceneObjects.length;
-      setLiveStatus('roblox', `✓ ${sceneCount} scene object(s) + circuit pushed — plugin will apply in ~2s`, true);
-      Canvas.showToast('📡 Pushed to Roblox Studio!');
+      await window.electronAPI.engineSetCode('roblox', combined, manifest);
+      setLiveStatus('roblox', `✓ ${allObjs.length} scene object(s) pushed — plugin creates them in Studio`, true);
+      Canvas.showToast(`📡 Pushed! Plugin will create ${allObjs.length} object(s) in your scene.`);
     } else {
       const blob = new Blob([combined], { type: 'text/plain' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href = url; a.download = 'RRCircuit.lua'; a.click();
       URL.revokeObjectURL(url);
-      Canvas.showToast('Downloaded — place Script in ServerScriptService');
+      Canvas.showToast('Downloaded RRCircuit.lua');
     }
+  }
+
+  // Generate Lua that REFERENCES existing workspace objects (plugin creates them)
+  function generateRobloxReferenceCode(objList) {
+    if (!objList.length) return '';
+    const L = [];
+
+    L.push('\n-- ═══════════════════════════════════════════════════════════');
+    L.push('-- Scene object references (objects are created in Studio by the plugin)');
+    L.push('-- ═══════════════════════════════════════════════════════════');
+    L.push('local Players = game:GetService("Players")');
+    L.push('');
+
+    // Reference lookups
+    objList.forEach(obj => {
+      const isUI = OBJ_TYPES[obj.type]?.category === 'ui';
+      if (isUI) return; // UI handled in PlayerAdded
+      L.push(`local ${obj.name} = workspace:WaitForChild("${obj.name}", 10)`);
+      if (obj.type === 'button' || obj.type === 'toggle_btn') {
+        L.push(`local ${obj.name}_click = ${obj.name} and ${obj.name}:WaitForChild("ClickDetector", 5)`);
+      } else if (obj.type === 'interact_vol') {
+        L.push(`local ${obj.name}_prompt = ${obj.name} and ${obj.name}:WaitForChild("ProximityPrompt", 5)`);
+      }
+    });
+    L.push('');
+
+    // Event connections — world objects
+    objList.forEach(obj => {
+      const isUI = OBJ_TYPES[obj.type]?.category === 'ui';
+      if (isUI) return;
+
+      switch (obj.type) {
+        case 'button':
+          L.push(`-- 🔘 Button: ${obj.name}`);
+          L.push(`if ${obj.name}_click then`);
+          L.push(`    ${obj.name}_click.MouseClick:Connect(function(player)`);
+          L.push(`        -- ▶ Circuit fires here`);
+          L.push(`    end)`);
+          L.push(`end`);
+          break;
+        case 'toggle_btn': {
+          const onColor  = '#' + (obj.config.color  || '44DD88');
+          const offColor = '#' + (obj.config.color  || 'FF4455');
+          L.push(`-- 🔄 Toggle: ${obj.name}`);
+          L.push(`local ${obj.name}_state = false`);
+          L.push(`if ${obj.name}_click then`);
+          L.push(`    ${obj.name}_click.MouseClick:Connect(function(player)`);
+          L.push(`        ${obj.name}_state = not ${obj.name}_state`);
+          L.push(`        ${obj.name}.Color = ${obj.name}_state`);
+          L.push(`            and Color3.fromHex("${onColor}") or Color3.fromHex("${offColor}")`);
+          L.push(`        -- ▶ Circuit fires here`);
+          L.push(`    end)`);
+          L.push(`end`);
+          break;
+        }
+        case 'trigger_vol':
+          L.push(`-- 📦 Trigger: ${obj.name}`);
+          L.push(`if ${obj.name} then`);
+          L.push(`    ${obj.name}.Touched:Connect(function(hit)`);
+          L.push(`        local player = Players:GetPlayerFromCharacter(hit.Parent)`);
+          L.push(`        if not player then return end`);
+          L.push(`        -- ▶ Circuit fires here: player entered ${obj.name}`);
+          L.push(`    end)`);
+          L.push(`    ${obj.name}.TouchEnded:Connect(function(hit)`);
+          L.push(`        local player = Players:GetPlayerFromCharacter(hit.Parent)`);
+          L.push(`        if not player then return end`);
+          L.push(`        -- ▶ Circuit fires here: player exited ${obj.name}`);
+          L.push(`    end)`);
+          L.push(`end`);
+          break;
+        case 'interact_vol':
+          L.push(`-- 👆 Interaction: ${obj.name}`);
+          L.push(`if ${obj.name}_prompt then`);
+          L.push(`    ${obj.name}_prompt.Triggered:Connect(function(player)`);
+          L.push(`        -- ▶ Circuit fires here`);
+          L.push(`    end)`);
+          L.push(`end`);
+          break;
+        case 'handle_vol':
+          L.push(`-- ✋ Handle Volume: ${obj.name}`);
+          L.push(`if ${obj.name} then`);
+          L.push(`    ${obj.name}.Touched:Connect(function(hit)`);
+          L.push(`        -- ▶ Grabbed`);
+          L.push(`    end)`);
+          L.push(`end`);
+          break;
+      }
+      L.push('');
+    });
+
+    // UI objects — connect per-player on PlayerAdded
+    const uiObjs = objList.filter(o => OBJ_TYPES[o.type]?.category === 'ui' && OBJ_TYPES[o.type]?.event);
+    if (uiObjs.length) {
+      L.push('-- UI events (wired per-player)');
+      L.push('Players.PlayerAdded:Connect(function(player)');
+      L.push('    local pGui = player.PlayerGui');
+      // Group by parent GUI
+      const guiNames = [...new Set(uiObjs.map(o => o.config?.parent || 'RRGui'))];
+      guiNames.forEach(guiName => {
+        L.push(`    local ${guiName} = pGui:WaitForChild("${guiName}", 10)`);
+        L.push(`    if not ${guiName} then return end`);
+        uiObjs.filter(o => (o.config?.parent || 'RRGui') === guiName).forEach(obj => {
+          L.push(`    local ${obj.name} = ${guiName}:WaitForChild("${obj.name}", 5)`);
+          if (obj.type === 'ui_button') {
+            L.push(`    if ${obj.name} then`);
+            L.push(`        ${obj.name}.MouseButton1Click:Connect(function()`);
+            L.push(`            -- ▶ Circuit fires here: UI button ${obj.name}`);
+            L.push(`        end)`);
+            L.push(`    end`);
+          } else if (obj.type === 'ui_toggle') {
+            L.push(`    if ${obj.name} then`);
+            L.push(`        local _${obj.name}_on = false`);
+            L.push(`        ${obj.name}.MouseButton1Click:Connect(function()`);
+            L.push(`            _${obj.name}_on = not _${obj.name}_on`);
+            L.push(`            ${obj.name}.Text = _${obj.name}_on`);
+            L.push(`                and (${obj.name}:GetAttribute("OnText") or "ON")`);
+            L.push(`                or  (${obj.name}:GetAttribute("OffText") or "OFF")`);
+            L.push(`            ${obj.name}.BackgroundColor3 = _${obj.name}_on`);
+            L.push(`                and Color3.fromHex("#"..${obj.name}:GetAttribute("OnColor"))`);
+            L.push(`                or  Color3.fromHex("#"..${obj.name}:GetAttribute("OffColor"))`);
+            L.push(`        end)`);
+            L.push(`    end`);
+          }
+        });
+      });
+      L.push('end)');
+    }
+
+    return '\n' + L.join('\n');
   }
 
   // ── Download plugin ───────────────────────────────────────────────────────

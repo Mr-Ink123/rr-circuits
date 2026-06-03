@@ -29,7 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuFrameAll:  (cb) => ipcRenderer.on('menu-frame-all',  () => cb()),
 
   // ── Engine Connect ─────────────────────────────────────────────────
-  engineSetCode: (engine, code) => ipcRenderer.invoke('engine-set-code', { engine, code }),
+  engineSetCode: (engine, code, objects) => ipcRenderer.invoke('engine-set-code', { engine, code, objects }),
   engineStatus:  ()             => ipcRenderer.invoke('engine-status'),
 
   // ── Platform ───────────────────────────────────────────────────────
