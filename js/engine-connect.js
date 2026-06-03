@@ -50,11 +50,13 @@ const EngineConnect = (() => {
     document.getElementById('closeEngine')?.addEventListener('click',   () => { document.getElementById('engineModal').style.display = 'none'; });
     document.getElementById('engineModal')?.addEventListener('click',   e  => { if (e.target === document.getElementById('engineModal')) document.getElementById('engineModal').style.display = 'none'; });
 
-    // Scene object add dropdown
-    document.getElementById('ecAddSceneType')?.addEventListener('change', e => {
-      const t = e.target.value; if (!t) return;
-      addSceneObject(t);
-      e.target.value = '';
+    // Scene object add dropdowns (Roblox / Unity / Unreal all share the same list)
+    ['ecAddSceneType','ecAddSceneTypeUnity','ecAddSceneTypeUnreal'].forEach(id => {
+      document.getElementById(id)?.addEventListener('change', e => {
+        const t = e.target.value; if (!t) return;
+        addSceneObject(t);
+        e.target.value = '';
+      });
     });
 
     // Roblox
@@ -127,7 +129,13 @@ const EngineConnect = (() => {
   }
 
   function renderSceneList() {
-    const list = document.getElementById('ecSceneList');
+    // Render into all three panels (they share the same data)
+    ['ecSceneList','ecSceneListUnity','ecSceneListUnreal'].forEach(listId => {
+      _renderIntoList(document.getElementById(listId));
+    });
+  }
+
+  function _renderIntoList(list) {
     if (!list) return;
     list.innerHTML = '';
 
@@ -590,6 +598,314 @@ const EngineConnect = (() => {
 
   function getSceneObjects() { return sceneObjects; }
 
+  // ── Unity Scene Code Generator ───────────────────────────────────────────
+  function generateUnityScene() {
+    if (!sceneObjects.length) return '';
+    const L = [];
+    const projName = (document.getElementById('projectName')?.textContent.trim()||'RRCircuit').replace(/\s+/g,'');
+
+    L.push('');
+    L.push('    // ════════════════════════════════════════════════════════════');
+    L.push('    // SCENE SETUP — GameObjects created automatically on Start()');
+    L.push('    // ════════════════════════════════════════════════════════════');
+    L.push('');
+    L.push('    private Dictionary<string, GameObject> _scene = new Dictionary<string, GameObject>();');
+    L.push('    private Canvas _canvas;');
+    L.push('');
+    L.push('    private void SetupScene()');
+    L.push('    {');
+    L.push('        // Create Canvas for all UI elements');
+    const hasUI = sceneObjects.some(o => OBJ_TYPES[o.type]?.category === 'ui');
+    if (hasUI) {
+      L.push('        var canvasGO = new GameObject("RRCanvas");');
+      L.push('        _canvas = canvasGO.AddComponent<Canvas>();');
+      L.push('        _canvas.renderMode = RenderMode.ScreenSpaceOverlay;');
+      L.push('        canvasGO.AddComponent<CanvasScaler>();');
+      L.push('        canvasGO.AddComponent<GraphicRaycaster>();');
+    }
+    L.push('');
+
+    sceneObjects.forEach(obj => {
+      const c   = obj.config;
+      const pos = (c.pos  || '0,2,0').split(',').map(v=>parseFloat(v)||0);
+      const sz  = (c.size || '4,4,4').split(',').map(v=>parseFloat(v)||4);
+      const col = hexToUnityColor(c.color || c.bgColor || 'AAAAAA');
+
+      if (obj.type === 'button' || obj.type === 'toggle_btn' || obj.type === 'part') {
+        const isToggle = obj.type === 'toggle_btn';
+        L.push(`        // ${isToggle ? '🔄 Toggle' : '🔘 Button'}: ${obj.name}`);
+        L.push(`        var ${obj.name} = GameObject.CreatePrimitive(PrimitiveType.Cube);`);
+        L.push(`        ${obj.name}.name = "${obj.name}";`);
+        L.push(`        ${obj.name}.transform.position = new Vector3(${pos[0]}f, ${pos[1]}f, ${pos[2]}f);`);
+        L.push(`        ${obj.name}.transform.localScale = new Vector3(${sz[0]}f, ${sz[1]}f, ${sz[2]}f);`);
+        L.push(`        ${obj.name}.GetComponent<Renderer>().material.color = ${col};`);
+        if (obj.type !== 'part') {
+          L.push(`        var ${obj.name}_click = ${obj.name}.AddComponent<RRClickDetector>();`);
+          L.push(`        ${obj.name}_click.objectName = "${obj.name}";`);
+          if (isToggle) L.push(`        ${obj.name}_click.isToggle = true;`);
+        }
+        L.push(`        _scene["${obj.name}"] = ${obj.name};`);
+
+      } else if (obj.type === 'trigger_vol') {
+        L.push(`        // 📦 Trigger Volume: ${obj.name}`);
+        L.push(`        var ${obj.name} = new GameObject("${obj.name}");`);
+        L.push(`        ${obj.name}.transform.position = new Vector3(${pos[0]}f, ${pos[1]}f, ${pos[2]}f);`);
+        L.push(`        var ${obj.name}_col = ${obj.name}.AddComponent<BoxCollider>();`);
+        L.push(`        ${obj.name}_col.size = new Vector3(${sz[0]}f, ${sz[1]}f, ${sz[2]}f);`);
+        L.push(`        ${obj.name}_col.isTrigger = true;`);
+        L.push(`        var ${obj.name}_trigger = ${obj.name}.AddComponent<RRTriggerVolume>();`);
+        L.push(`        ${obj.name}_trigger.objectName = "${obj.name}";`);
+        L.push(`        _scene["${obj.name}"] = ${obj.name};`);
+
+      } else if (obj.type === 'interact_vol') {
+        L.push(`        // 👆 Interaction Zone: ${obj.name}`);
+        L.push(`        var ${obj.name} = new GameObject("${obj.name}");`);
+        L.push(`        ${obj.name}.transform.position = new Vector3(${pos[0]}f, ${pos[1]}f, ${pos[2]}f);`);
+        L.push(`        var ${obj.name}_col = ${obj.name}.AddComponent<BoxCollider>();`);
+        L.push(`        ${obj.name}_col.size = new Vector3(${sz[0]}f, ${sz[1]}f, ${sz[2]}f);`);
+        L.push(`        ${obj.name}_col.isTrigger = true;`);
+        L.push(`        var ${obj.name}_interact = ${obj.name}.AddComponent<RRInteractionZone>();`);
+        L.push(`        ${obj.name}_interact.promptText = "${c.promptText||'Interact'}";`);
+        L.push(`        ${obj.name}_interact.maxDistance = ${parseFloat(c.maxDist||8)}f;`);
+        L.push(`        _scene["${obj.name}"] = ${obj.name};`);
+
+      } else if (obj.type === 'ui_button') {
+        const uiSz  = (c.size||'200,50').split(',').map(v=>parseFloat(v)||100);
+        const uiPos = (c.pos||'0,0,0,0').split(',').map(v=>parseFloat(v)||0);
+        L.push(`        // 🖱 UI Button: ${obj.name}`);
+        L.push(`        var ${obj.name}GO = new GameObject("${obj.name}");`);
+        L.push(`        ${obj.name}GO.transform.SetParent(_canvas.transform, false);`);
+        L.push(`        var ${obj.name}_img = ${obj.name}GO.AddComponent<Image>();`);
+        L.push(`        ${obj.name}_img.color = ${hexToUnityColor(c.bgColor||'0066FF')};`);
+        L.push(`        var ${obj.name} = ${obj.name}GO.AddComponent<Button>();`);
+        L.push(`        var ${obj.name}_rect = ${obj.name}GO.GetComponent<RectTransform>();`);
+        L.push(`        ${obj.name}_rect.sizeDelta = new Vector2(${uiSz[0]}f, ${uiSz[1]}f);`);
+        L.push(`        ${obj.name}_rect.anchoredPosition = new Vector2(${uiPos[1]}f, ${uiPos[3]}f);`);
+        L.push(`        // Button text`);
+        L.push(`        var ${obj.name}_textGO = new GameObject("Text");`);
+        L.push(`        ${obj.name}_textGO.transform.SetParent(${obj.name}GO.transform, false);`);
+        L.push(`        var ${obj.name}_text = ${obj.name}_textGO.AddComponent<TextMeshProUGUI>();`);
+        L.push(`        ${obj.name}_text.text = "${c.text||'Click Me'}";`);
+        L.push(`        ${obj.name}_text.alignment = TextAlignmentOptions.Center;`);
+        L.push(`        ${obj.name}_text.color = ${hexToUnityColor(c.textColor||'FFFFFF')};`);
+        L.push(`        ${obj.name}_text.GetComponent<RectTransform>().sizeDelta = ${obj.name}_rect.sizeDelta;`);
+        L.push(`        _scene["${obj.name}"] = ${obj.name}GO;`);
+
+      } else if (obj.type === 'ui_label') {
+        const uiSz = (c.size||'200,30').split(',').map(v=>parseFloat(v)||100);
+        L.push(`        // 📝 UI Label: ${obj.name}`);
+        L.push(`        var ${obj.name}GO = new GameObject("${obj.name}");`);
+        L.push(`        ${obj.name}GO.transform.SetParent(_canvas.transform, false);`);
+        L.push(`        var ${obj.name} = ${obj.name}GO.AddComponent<TextMeshProUGUI>();`);
+        L.push(`        ${obj.name}.text = "${c.text||'Label'}";`);
+        L.push(`        ${obj.name}.color = ${hexToUnityColor(c.textColor||'FFFFFF')};`);
+        L.push(`        ${obj.name}.GetComponent<RectTransform>().sizeDelta = new Vector2(${uiSz[0]}f, ${uiSz[1]}f);`);
+        L.push(`        _scene["${obj.name}"] = ${obj.name}GO;`);
+
+      } else if (obj.type === 'ui_toggle') {
+        const uiSz = (c.size||'200,50').split(',').map(v=>parseFloat(v)||100);
+        L.push(`        // 🔄 UI Toggle: ${obj.name}`);
+        L.push(`        var ${obj.name}GO = new GameObject("${obj.name}");`);
+        L.push(`        ${obj.name}GO.transform.SetParent(_canvas.transform, false);`);
+        L.push(`        var ${obj.name} = ${obj.name}GO.AddComponent<Toggle>();`);
+        L.push(`        ${obj.name}GO.GetComponent<RectTransform>().sizeDelta = new Vector2(${uiSz[0]}f, ${uiSz[1]}f);`);
+        L.push(`        _scene["${obj.name}"] = ${obj.name}GO;`);
+
+      } else if (obj.type === 'ui_textbox') {
+        const uiSz = (c.size||'200,40').split(',').map(v=>parseFloat(v)||100);
+        L.push(`        // ⌨ UI InputField: ${obj.name}`);
+        L.push(`        var ${obj.name}GO = new GameObject("${obj.name}");`);
+        L.push(`        ${obj.name}GO.transform.SetParent(_canvas.transform, false);`);
+        L.push(`        var ${obj.name} = ${obj.name}GO.AddComponent<TMP_InputField>();`);
+        L.push(`        ${obj.name}.placeholder.GetComponent<TextMeshProUGUI>().text = "${c.placeholder||'Type here...'}";`);
+        L.push(`        ${obj.name}GO.GetComponent<RectTransform>().sizeDelta = new Vector2(${uiSz[0]}f, ${uiSz[1]}f);`);
+        L.push(`        _scene["${obj.name}"] = ${obj.name}GO;`);
+      }
+      L.push('');
+    });
+
+    L.push('    }');
+    L.push('');
+
+    // Event wiring
+    L.push('    // ═══ Event Callbacks ═══');
+    L.push('    // These are called by the helper components above.');
+    L.push('    // Connect your circuit logic here.');
+    L.push('');
+    const usedEvents = new Set(sceneObjects.map(o => OBJ_TYPES[o.type]?.event).filter(Boolean));
+
+    if (usedEvents.has('btn_pressed')) {
+      L.push('    public void OnButtonClicked(string name) {');
+      L.push('        // ▶ Circuit: button clicked');
+      L.push('        Debug.Log($"Button clicked: {name}");');
+      L.push('    }');
+    }
+    if (usedEvents.has('tbtn_on')) {
+      L.push('    public void OnToggleOn(string name)  { Debug.Log($"Toggle ON: {name}"); }');
+      L.push('    public void OnToggleOff(string name) { Debug.Log($"Toggle OFF: {name}"); }');
+    }
+    if (usedEvents.has('trig_enter')) {
+      L.push('    public void OnTriggerEntered(string name, Collider other) {');
+      L.push('        Debug.Log($"Trigger entered: {name}");');
+      L.push('    }');
+      L.push('    public void OnTriggerExited(string name, Collider other) { }');
+    }
+    if (usedEvents.has('ivol_interact')) {
+      L.push('    public void OnInteraction(string name) { Debug.Log($"Interaction: {name}"); }');
+    }
+    if (usedEvents.has('sbtn_click')) {
+      L.push('    public void OnUIButtonClicked(string name) { Debug.Log($"UI Click: {name}"); }');
+    }
+
+    // Helper components code (appended as a comment guide)
+    L.push('');
+    L.push('    /* ── Add these helper MonoBehaviours to your project ──');
+    L.push('    They call back into the generated circuit class above. ──');
+    L.push('');
+    L.push('    public class RRClickDetector : MonoBehaviour {');
+    L.push('        public string objectName; public bool isToggle;');
+    L.push('        private bool _state;');
+    L.push('        void OnMouseDown() {');
+    L.push('            var c = FindObjectOfType<' + projName + '>();');
+    L.push('            if (!c) return;');
+    L.push('            if (isToggle) { _state=!_state; if(_state) c.OnToggleOn(objectName); else c.OnToggleOff(objectName); }');
+    L.push('            else c.OnButtonClicked(objectName);');
+    L.push('        }');
+    L.push('    }');
+    L.push('');
+    L.push('    public class RRTriggerVolume : MonoBehaviour {');
+    L.push('        public string objectName;');
+    L.push('        void OnTriggerEnter(Collider other) { FindObjectOfType<' + projName + '>()?.OnTriggerEntered(objectName, other); }');
+    L.push('        void OnTriggerExit(Collider other)  { FindObjectOfType<' + projName + '>()?.OnTriggerExited(objectName, other); }');
+    L.push('    }');
+    L.push('    ── */');
+
+    return '\n' + L.join('\n');
+  }
+
+  function hexToUnityColor(hex) {
+    hex = hex.replace('#','');
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0,2),16)/255;
+      const g = parseInt(hex.slice(2,4),16)/255;
+      const b = parseInt(hex.slice(4,6),16)/255;
+      return `new Color(${r.toFixed(3)}f, ${g.toFixed(3)}f, ${b.toFixed(3)}f)`;
+    }
+    return 'Color.white';
+  }
+
+  // ── Unreal Scene Code Generator ───────────────────────────────────────────
+  function generateUnrealScene() {
+    if (!sceneObjects.length) return '';
+    const L = [];
+    const projName = (document.getElementById('projectName')?.textContent.trim()||'RRCircuit').replace(/\s+/g,'');
+
+    L.push('');
+    L.push('// ════════════════════════════════════════════════════════════════');
+    L.push('// SCENE SETUP — Actors/components spawned in BeginPlay()');
+    L.push('// ════════════════════════════════════════════════════════════════');
+    L.push('');
+    L.push(`void A${projName}::SetupScene()`);
+    L.push('{');
+    L.push('    UWorld* World = GetWorld();');
+    L.push('    if (!World) return;');
+    L.push('    FActorSpawnParameters SP;');
+    L.push('');
+
+    sceneObjects.forEach(obj => {
+      const c   = obj.config;
+      const pos = (c.pos  || '0,2,0').split(',').map(v=>parseFloat(v)*100||0);  // cm in Unreal
+      const sz  = (c.size || '4,4,4').split(',').map(v=>parseFloat(v)*50||200);
+
+      if (obj.type === 'button' || obj.type === 'toggle_btn' || obj.type === 'part') {
+        L.push(`    // ${obj.type==='toggle_btn'?'🔄 Toggle':'🔘 Button'}: ${obj.name}`);
+        L.push(`    SP.Name = TEXT("${obj.name}");`);
+        L.push(`    auto* ${obj.name} = World->SpawnActor<AStaticMeshActor>(`);
+        L.push(`        AStaticMeshActor::StaticClass(),`);
+        L.push(`        FVector(${pos[0]}f, ${pos[1]}f, ${pos[2]}f),`);
+        L.push(`        FRotator::ZeroRotator, SP);`);
+        L.push(`    if (${obj.name}) {`);
+        L.push(`        ${obj.name}->GetStaticMeshComponent()->SetMobility(EComponentMobility::Movable);`);
+        if (obj.type === 'button') {
+          L.push(`        // Wire click: ${obj.name}->OnClicked.AddDynamic(this, &A${projName}::OnButtonClicked);`);
+        }
+        L.push(`        SceneActors.Add(TEXT("${obj.name}"), ${obj.name});`);
+        L.push(`    }`);
+
+      } else if (obj.type === 'trigger_vol') {
+        L.push(`    // 📦 Trigger Volume: ${obj.name}`);
+        L.push(`    SP.Name = TEXT("${obj.name}");`);
+        L.push(`    auto* ${obj.name} = World->SpawnActor<ATriggerBox>(`);
+        L.push(`        ATriggerBox::StaticClass(),`);
+        L.push(`        FVector(${pos[0]}f, ${pos[1]}f, ${pos[2]}f),`);
+        L.push(`        FRotator::ZeroRotator, SP);`);
+        L.push(`    if (${obj.name}) {`);
+        L.push(`        ${obj.name}->GetCollisionComponent()->SetBoxExtent(FVector(${sz[0]}f, ${sz[1]}f, ${sz[2]}f));`);
+        L.push(`        ${obj.name}->OnActorBeginOverlap.AddDynamic(this, &A${projName}::On${obj.name}Enter);`);
+        L.push(`        ${obj.name}->OnActorEndOverlap.AddDynamic(this, &A${projName}::On${obj.name}Exit);`);
+        L.push(`        SceneActors.Add(TEXT("${obj.name}"), ${obj.name});`);
+        L.push(`    }`);
+
+      } else if (obj.type === 'interact_vol') {
+        L.push(`    // 👆 Interaction Volume: ${obj.name}`);
+        L.push(`    SP.Name = TEXT("${obj.name}");`);
+        L.push(`    auto* ${obj.name} = World->SpawnActor<ATriggerBox>(`);
+        L.push(`        ATriggerBox::StaticClass(),`);
+        L.push(`        FVector(${pos[0]}f, ${pos[1]}f, ${pos[2]}f),`);
+        L.push(`        FRotator::ZeroRotator, SP);`);
+        L.push(`    if (${obj.name}) {`);
+        L.push(`        // Add Interaction Prompt component (UInteractableComponent)`);
+        L.push(`        ${obj.name}->OnActorBeginOverlap.AddDynamic(this, &A${projName}::On${obj.name}Interact);`);
+        L.push(`        SceneActors.Add(TEXT("${obj.name}"), ${obj.name});`);
+        L.push(`    }`);
+
+      } else if (OBJ_TYPES[obj.type]?.category === 'ui') {
+        const uiSz = (c.size||'200,50').split(',').map(v=>parseFloat(v)||100);
+        L.push(`    // UI (UMG): ${obj.name} — create as Widget Blueprint or in CreateWidget<>`);
+        L.push(`    // TSubclassOf<UUserWidget> ${obj.name}Class; // set in Editor`);
+        L.push(`    // auto* ${obj.name} = CreateWidget<UUserWidget>(GetWorld(), ${obj.name}Class);`);
+        L.push(`    // if (${obj.name}) ${obj.name}->AddToViewport();`);
+        L.push(`    // For ${obj.type}: size hint (${uiSz[0]} x ${uiSz[1]})`);
+      }
+      L.push('');
+    });
+
+    L.push('}');
+    L.push('');
+
+    // Event callbacks
+    L.push('// ═══ Event Callbacks ═══');
+    const usedEvents = new Set(sceneObjects.map(o => OBJ_TYPES[o.type]?.event).filter(Boolean));
+    const trigObjs   = sceneObjects.filter(o => o.type === 'trigger_vol' || o.type === 'interact_vol');
+
+    if (usedEvents.has('btn_pressed')) {
+      L.push(`void A${projName}::OnButtonClicked(AActor* ClickedActor, FKey ButtonPressed) {`);
+      L.push('    UE_LOG(LogTemp, Log, TEXT("Button clicked"));');
+      L.push('    // ▶ Circuit logic here');
+      L.push('}');
+    }
+    trigObjs.forEach(obj => {
+      L.push(`void A${projName}::On${obj.name}Enter(AActor* Ov, AActor* OtherActor) {`);
+      L.push(`    UE_LOG(LogTemp, Log, TEXT("${obj.name} entered"));`);
+      L.push('}');
+      L.push(`void A${projName}::On${obj.name}Exit(AActor* Ov, AActor* OtherActor) { }`);
+    });
+
+    // Header additions hint
+    L.push('');
+    L.push('/* Add to your .h file:');
+    L.push('    TMap<FName, AActor*> SceneActors;');
+    L.push('    void SetupScene();');
+    if (usedEvents.has('btn_pressed')) L.push(`    UFUNCTION() void OnButtonClicked(AActor* ClickedActor, FKey ButtonPressed);`);
+    trigObjs.forEach(o => {
+      L.push(`    UFUNCTION() void On${o.name}Enter(AActor* Ov, AActor* OtherActor);`);
+      L.push(`    UFUNCTION() void On${o.name}Exit(AActor* Ov, AActor* OtherActor);`);
+    });
+    L.push('*/');
+
+    return '\n' + L.join('\n');
+  }
+
   // ── Push functions ────────────────────────────────────────────────────────
   async function pushRoblox() {
     const circuitCode = Exporter.export('roblox');
@@ -636,16 +952,24 @@ const EngineConnect = (() => {
     }
   }
   async function pushUnity() {
-    const code     = Exporter.export('unity');
+    // Inject scene code inside the class body (before final })
+    const base     = Exporter.export('unity');
+    const scene    = generateUnityScene();
+    const combined = scene ? base.replace(/\n\}$/, '\n' + scene + '\n}') : base;
     const projName = (document.getElementById('projectName')?.textContent.trim()||'RRCircuit').replace(/\s+/g,'');
     const filename = projName + '.cs';
+
     if (typeof IS_ELECTRON !== 'undefined' && IS_ELECTRON) {
-      const result = await window.electronAPI.writeToFolder({ suggestedFolder:'Assets/Scripts', filename, content:code });
-      if (result.success) { setLiveStatus('unity', `✓ Written to ${result.filePath}`, true); Canvas.showToast(`✅ Written to Unity!`); }
-      else if (!result.canceled) setLiveStatus('unity', 'Error: ' + (result.error||'unknown'), false);
+      const result = await window.electronAPI.writeToFolder({ suggestedFolder:'Assets/Scripts', filename, content:combined });
+      if (result.success) {
+        const count = sceneObjects.length;
+        setLiveStatus('unity', `✓ Written to ${result.filePath}${count ? ` — ${count} scene object(s) included` : ''}`, true);
+        Canvas.showToast(`✅ Written to Unity! (${count} scene objects)`);
+      } else if (!result.canceled) { setLiveStatus('unity', 'Error: ' + (result.error||'unknown'), false); }
     } else {
-      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([code],{type:'text/plain'})), download: filename });
-      a.click(); Canvas.showToast(`Downloaded ${filename}`);
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([combined],{type:'text/plain'})), download: filename });
+      a.click();
+      Canvas.showToast(`Downloaded ${filename}`);
     }
   }
 
@@ -661,15 +985,25 @@ const EngineConnect = (() => {
     }
   }
   async function pushUnreal() {
-    const code     = Exporter.export('unreal');
+    const base     = Exporter.export('unreal');
+    const scene    = generateUnrealScene();
+    // Inject SetupScene() call in BeginPlay
+    const combined = scene ? base.replace(
+      'Super::BeginPlay();',
+      'Super::BeginPlay();\n    SetupScene();'
+    ) + scene : base;
     const projName = (document.getElementById('projectName')?.textContent.trim()||'RRCircuit').replace(/\s+/g,'');
     const filename = projName + '.cpp';
+
     if (typeof IS_ELECTRON !== 'undefined' && IS_ELECTRON) {
-      const result = await window.electronAPI.writeToFolder({ suggestedFolder:'Source/YourProject', filename, content:code });
-      if (result.success) { setLiveStatus('unreal', `✓ Written to ${result.filePath}`, true); Canvas.showToast(`✅ Written to Unreal!`); }
-      else if (!result.canceled) setLiveStatus('unreal', 'Error: ' + (result.error||'unknown'), false);
+      const result = await window.electronAPI.writeToFolder({ suggestedFolder:'Source/YourProject', filename, content:combined });
+      if (result.success) {
+        const count = sceneObjects.length;
+        setLiveStatus('unreal', `✓ Written to ${result.filePath}${count ? ` — ${count} scene object(s) included` : ''}`, true);
+        Canvas.showToast(`✅ Written to Unreal! (${count} scene objects)`);
+      } else if (!result.canceled) { setLiveStatus('unreal', 'Error: ' + (result.error||'unknown'), false); }
     } else {
-      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([code],{type:'text/plain'})), download: filename });
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([combined],{type:'text/plain'})), download: filename });
       a.click(); Canvas.showToast(`Downloaded ${filename}`);
     }
   }

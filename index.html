@@ -437,17 +437,44 @@
             <button class="mbtn green" id="ecPushUnity">⬆ Write to Unity Project</button>
           </div>
         </div>
-        <div class="ec-live-status" id="ecUnityLive">
-          No Unity project path set yet
+        <div class="ec-live-status" id="ecUnityLive">No Unity project path set yet</div>
+
+        <!-- Unity Scene Builder -->
+        <div style="margin-top:14px">
+          <div class="ec-scene-header">
+            <span>🏗 Scene Builder</span>
+            <small style="color:var(--text3);margin-left:6px">GameObjects created on Start() in your scene</small>
+            <select id="ecAddSceneTypeUnity" class="ec-select" style="margin-left:auto">
+              <option value="">+ Add object…</option>
+              <optgroup label="── World ──">
+                <option value="button">🔘 Button (Click)</option>
+                <option value="toggle_btn">🔄 Toggle Button</option>
+                <option value="trigger_vol">📦 Trigger Volume (Collider)</option>
+                <option value="interact_vol">👆 Interaction Zone</option>
+                <option value="part">🧱 GameObject / Cube</option>
+              </optgroup>
+              <optgroup label="── UI (Canvas) ──">
+                <option value="ui_button">🖱 UI Button</option>
+                <option value="ui_label">📝 UI Text (TMP)</option>
+                <option value="ui_image">🖼 UI Image</option>
+                <option value="ui_frame">⬜ UI Panel</option>
+                <option value="ui_toggle">🔄 UI Toggle</option>
+                <option value="ui_textbox">⌨ UI InputField</option>
+              </optgroup>
+            </select>
+          </div>
+          <div id="ecSceneListUnity" class="ec-scene-list">
+            <div class="ec-scene-empty">No scene objects — shared with Roblox/Unreal list</div>
+          </div>
         </div>
       </div>
 
       <!-- ══ Unreal ══ -->
       <div class="ec-panel" id="ec-unreal" style="display:none">
         <div class="ec-info">
-          <p>RR Circuits writes <strong>.cpp and .h files</strong> directly into your Unreal
-          project's <code>Source/</code> folder. Use Unreal's <em>Live Coding</em> or
-          regenerate project files to compile.</p>
+          <p>RR Circuits writes a <strong>self-contained .cpp Actor</strong> into your Unreal
+          project's <code>Source/</code> folder. The Actor spawns all scene objects and wires events in <code>BeginPlay()</code>.</p>
+          <p>Use <strong>Live Coding</strong> (Ctrl+Alt+F11) or regenerate project files to compile.</p>
         </div>
         <div class="ec-steps">
           <div class="ec-step"><span class="ec-num">1</span>
@@ -458,12 +485,39 @@
             </div>
           </div>
           <div class="ec-step"><span class="ec-num">2</span>
-            <div>Push your circuit as Unreal C++ (Actor + header):</div>
+            <div>Push circuit + scene as Unreal C++ Actor:</div>
             <button class="mbtn green" id="ecPushUnreal">⬆ Write to Unreal Project</button>
           </div>
         </div>
-        <div class="ec-live-status" id="ecUnrealLive">
-          No Unreal project path set yet
+        <div class="ec-live-status" id="ecUnrealLive">No Unreal project path set yet</div>
+
+        <!-- Unreal Scene Builder -->
+        <div style="margin-top:14px">
+          <div class="ec-scene-header">
+            <span>🏗 Scene Builder</span>
+            <small style="color:var(--text3);margin-left:6px">Actors/components spawned in BeginPlay()</small>
+            <select id="ecAddSceneTypeUnreal" class="ec-select" style="margin-left:auto">
+              <option value="">+ Add object…</option>
+              <optgroup label="── World ──">
+                <option value="button">🔘 Clickable Actor</option>
+                <option value="toggle_btn">🔄 Toggle Actor</option>
+                <option value="trigger_vol">📦 Trigger Box Volume</option>
+                <option value="interact_vol">👆 Interaction Volume</option>
+                <option value="part">🧱 Static Mesh Actor</option>
+              </optgroup>
+              <optgroup label="── UI (UMG) ──">
+                <option value="ui_button">🖱 UMG Button</option>
+                <option value="ui_label">📝 UMG TextBlock</option>
+                <option value="ui_image">🖼 UMG Image</option>
+                <option value="ui_frame">⬜ UMG Canvas Panel</option>
+                <option value="ui_toggle">🔄 UMG CheckBox</option>
+                <option value="ui_textbox">⌨ UMG EditableText</option>
+              </optgroup>
+            </select>
+          </div>
+          <div id="ecSceneListUnreal" class="ec-scene-list">
+            <div class="ec-scene-empty">No scene objects — shared with Roblox/Unity list</div>
+          </div>
         </div>
       </div>
 
