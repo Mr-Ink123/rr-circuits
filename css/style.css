@@ -709,6 +709,73 @@ body{
 .ec-live-status.ok{border-left-color:#44DD88;color:#44DD88}
 .ec-live-status.err{border-left-color:#FF4455;color:#FF4455}
 
+/* Scene Builder */
+.ec-scene-header{
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:6px;font-size:11px;font-weight:700;color:var(--text);
+}
+.ec-scene-list{
+  display:flex;flex-direction:column;gap:4px;
+  max-height:260px;overflow-y:auto;
+  padding-right:2px;
+}
+.ec-scene-list::-webkit-scrollbar{width:4px}
+.ec-scene-list::-webkit-scrollbar-thumb{background:#2a3a55;border-radius:2px}
+.ec-scene-empty{
+  color:var(--text3);font-size:10px;font-style:italic;
+  padding:10px;text-align:center;
+  border:1px dashed #1e3050;border-radius:5px;
+}
+.ec-obj-row{
+  display:grid;
+  grid-template-columns:auto 1fr auto auto;
+  gap:5px;align-items:center;
+  background:#0a1525;border:1px solid #1e3050;
+  border-radius:5px;padding:6px 8px;
+  font-size:10px;
+}
+.ec-obj-row.ui-type{border-left:2px solid #4A9EFF}
+.ec-obj-row.world-type{border-left:2px solid #44DD88}
+.ec-obj-badge{
+  font-size:9px;font-weight:700;padding:2px 6px;
+  border-radius:3px;white-space:nowrap;
+}
+.ec-obj-badge.world{background:rgba(68,221,136,0.12);color:#44DD88}
+.ec-obj-badge.ui{background:rgba(74,158,255,0.12);color:#4A9EFF}
+.ec-obj-name{
+  background:#060e18;border:1px solid #1e3050;color:var(--text);
+  border-radius:3px;padding:3px 6px;font-size:10px;outline:none;
+  font-weight:600;
+}
+.ec-obj-name:focus{border-color:var(--accent)}
+.ec-obj-cfg{
+  background:none;border:1px solid #2a3a55;color:var(--text3);
+  border-radius:3px;padding:2px 6px;cursor:pointer;font-size:10px;
+}
+.ec-obj-cfg:hover{color:var(--text);background:#0f1e30}
+.ec-obj-del{
+  background:none;border:none;color:var(--text3);
+  cursor:pointer;font-size:12px;padding:2px 4px;border-radius:3px;
+}
+.ec-obj-del:hover{color:#FF4455;background:#2a1010}
+
+/* Object config popover */
+.ec-obj-config-panel{
+  background:#0a1525;border:1px solid #2a4060;
+  border-radius:6px;padding:10px;margin-top:2px;
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;
+  font-size:10px;
+}
+.ec-obj-config-panel label{color:var(--text2);display:block;margin-bottom:2px}
+.ec-obj-config-panel input,.ec-obj-config-panel select{
+  width:100%;background:#060e18;border:1px solid #1e3050;
+  color:var(--text);border-radius:3px;padding:3px 5px;
+  font-size:10px;outline:none;
+}
+.ec-obj-config-panel input[type=color]{
+  height:26px;padding:2px;cursor:pointer;
+}
+
 /* ═══════ SIMULATE MODE ═══════ */
 
 /* Canvas cursor hint */

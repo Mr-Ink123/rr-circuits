@@ -384,6 +384,37 @@
         <div class="ec-live-status" id="ecRobloxLive">
           Waiting — start the plugin in Roblox Studio first
         </div>
+
+        <!-- ── Scene Builder ── -->
+        <div style="margin-top:14px">
+          <div class="ec-scene-header">
+            <span>🏗 Scene Builder</span>
+            <small style="color:var(--text3);margin-left:6px">Objects created in your place when pushed</small>
+            <select id="ecAddSceneType" class="ec-select" style="margin-left:auto">
+              <option value="">+ Add object…</option>
+              <optgroup label="── World ──">
+                <option value="button">🔘 Button (Click)</option>
+                <option value="toggle_btn">🔄 Toggle Button</option>
+                <option value="trigger_vol">📦 Trigger Volume</option>
+                <option value="interact_vol">👆 Interaction Volume</option>
+                <option value="seat">💺 Seat</option>
+                <option value="part">🧱 Part</option>
+              </optgroup>
+              <optgroup label="── UI ──">
+                <option value="screen_gui">🖥 ScreenGui</option>
+                <option value="ui_button">🖱 UI Button</option>
+                <option value="ui_label">📝 UI Text Label</option>
+                <option value="ui_image">🖼 UI Image</option>
+                <option value="ui_frame">⬜ UI Frame</option>
+                <option value="ui_toggle">🔄 UI Toggle Button</option>
+                <option value="ui_textbox">⌨ UI TextBox</option>
+              </optgroup>
+            </select>
+          </div>
+          <div id="ecSceneList" class="ec-scene-list">
+            <div class="ec-scene-empty">No scene objects — add some above, then Push</div>
+          </div>
+        </div>
       </div>
 
       <!-- ══ Unity ══ -->
