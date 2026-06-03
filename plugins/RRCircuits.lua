@@ -102,10 +102,11 @@ mkSep(15)
 mkLabel("Requires:\nStudio Settings → Security\n→ Allow HTTP Requests ✓\n\nRun the RR Circuits app (not browser).", 10, Color3.fromRGB(70,100,140), 16)
 
 -- ── State ─────────────────────────────────────────────────────────────────────
-local listening      = false
-local lastCode       = ""
-local insertedScript = nil
-local createdParts   = {}
+local listening        = false
+local lastCode         = ""
+local lastManifestJSON = ""   -- hash of last objects array — skip recreation if unchanged
+local insertedScript   = nil
+local createdParts     = {}
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 local function log(msg)
@@ -399,23 +400,36 @@ local function fetchAndApply()
     statusLbl.Text="● Connected"
     statusLbl.TextColor3=Color3.fromRGB(60,220,100)
 
-    -- Create scene objects (always, not just on code change)
+    -- Create scene objects ONLY when the manifest has changed
+    -- (prevents constant delete-and-recreate on every poll)
     local objects = data.objects
-    if type(objects)=="table" and #objects > 0 then
-        infoLbl.Text="Creating "..#objects.." object(s)..."
-        local ok3, err3 = pcall(function()
-            for _, obj in ipairs(objects) do
-                createOne(obj)
+    if type(objects) == "table" and #objects > 0 then
+        local newJSON = HttpService:JSONEncode(objects)
+        if newJSON ~= lastManifestJSON then
+            lastManifestJSON = newJSON
+            infoLbl.Text = "Creating "..#objects.." object(s)..."
+            local ok3, err3 = pcall(function()
+                for _, obj in ipairs(objects) do
+                    createOne(obj)
+                end
+            end)
+            if not ok3 then
+                log("Scene error: "..tostring(err3))
+                infoLbl.Text = "Scene error — check Output window"
+            else
+                infoLbl.Text = #objects.." object(s) in scene ✓"
             end
-        end)
-        if not ok3 then
-            log("Scene error: "..tostring(err3))
-            infoLbl.Text="Scene error — check output"
         else
-            infoLbl.Text=#objects.." object(s) placed in scene ✓"
+            -- Same manifest — objects already in scene, nothing to do
+            if infoLbl.Text == "" or infoLbl.Text:find("Creating") then
+                infoLbl.Text = #objects.." object(s) in scene ✓"
+            end
         end
     else
-        infoLbl.Text="No scene objects in this circuit"
+        if lastManifestJSON ~= "" then
+            lastManifestJSON = ""
+        end
+        infoLbl.Text = "No scene objects in this circuit"
     end
 
     -- Insert/update script
@@ -463,7 +477,7 @@ clearBtn.MouseButton1Click:Connect(function()
     if insertedScript and insertedScript.Parent then
         insertedScript:Destroy(); insertedScript=nil
     end
-    lastCode=""; infoLbl.Text="Cleared"; logLbl.Text=""
+    lastCode=""; lastManifestJSON=""; infoLbl.Text="Cleared"; logLbl.Text=""
     statusLbl.Text="● Cleared"; statusLbl.TextColor3=Color3.fromRGB(200,160,60)
 end)
 
