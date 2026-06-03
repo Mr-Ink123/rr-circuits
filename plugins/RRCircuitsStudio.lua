@@ -1592,9 +1592,9 @@ local function buildSidebar(filter)
         div.LayoutOrder = lo
         div.Parent = chipScroll
         lo = lo + 1
-        end
-    end
-end
+        -- (no extra end here — the if block was replaced with continue above)
+    end  -- closes: for _, catName in ipairs(catOrder)
+end  -- closes: buildSidebar function
 
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
     buildSidebar(searchBox.Text)
