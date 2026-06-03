@@ -1281,49 +1281,52 @@ local function exportCircuit()
     end
     o("")
 
-    -- Entry points
-    for _, node in pairs(S.nodes) do
+    -- Entry points (use a helper to avoid goto/continue scoping issues)
+    local function emitEntry(node)
         local def = CHIP_MAP[node.chipId]
-        if not def then goto skipEntry end
-        if def.meta and def.meta.isScene then goto skipEntry end
+        if not def then return end
+        if def.meta and def.meta.isScene then return end
 
-        local function follow(outPort, ind, depth)
-            if depth > 15 then return end
+        local function follow(outPort)
             for _, w in ipairs(S.wires) do
                 if w.fromNode == node.id and w.fromPort == outPort and w.type == "exec" then
-                    o(ind.."-- → "..w.toNode.." ("..((CHIP_MAP[S.nodes[w.toNode] and S.nodes[w.toNode].chipId] or {}).name or "?")..")")
+                    local dn = S.nodes[w.toNode]
+                    local dname = dn and CHIP_MAP[dn.chipId] and CHIP_MAP[dn.chipId].name or "?"
+                    o("    -- → "..w.toNode.." ("..dname..")")
                 end
             end
         end
 
         if node.chipId == "on_init" then
-            o("-- On Init"); o("do"); follow(0,"    ",0); o("end")
+            o("-- On Init"); o("do"); follow(0); o("end")
         elseif node.chipId == "on_joined" then
-            o("Players.PlayerAdded:Connect(function(player)"); follow(0,"    ",0); o("end)")
+            o("Players.PlayerAdded:Connect(function(player)"); follow(0); o("end)")
         elseif node.chipId == "on_left" then
-            o("Players.PlayerRemoving:Connect(function(player)"); follow(0,"    ",0); o("end)")
+            o("Players.PlayerRemoving:Connect(function(player)"); follow(0); o("end)")
         elseif node.chipId == "on_update" then
-            o("game:GetService('RunService').Heartbeat:Connect(function(dt)"); follow(0,"    ",0); o("end)")
+            o("game:GetService('RunService').Heartbeat:Connect(function(dt)"); follow(0); o("end)")
         elseif node.chipId == "s_button" then
             local sn = node.sceneName or "btn"
             o("if "..sn.."_cd then")
             o("    "..sn.."_cd.MouseClick:Connect(function(player)")
-            o("        -- circuit fires here")
-            follow(0,"        ",0); o("    end)"); o("end")
+            follow(0); o("    end)"); o("end")
         elseif node.chipId == "s_trigger" then
             local sn = node.sceneName or "trig"
             o("if "..sn.." then")
             o("    "..sn..".Touched:Connect(function(hit)")
             o("        local player = Players:GetPlayerFromCharacter(hit.Parent)")
             o("        if not player then return end")
-            follow(0,"        ",0); o("    end)"); o("end")
+            follow(0); o("    end)"); o("end")
         elseif node.chipId == "s_interact" then
             local sn = node.sceneName or "inter"
             o("if "..sn.."_pp then")
             o("    "..sn.."_pp.Triggered:Connect(function(player)")
-            follow(0,"        ",0); o("    end)"); o("end")
+            follow(0); o("    end)"); o("end")
         end
-        ::skipEntry::
+    end
+
+    for _, node in pairs(S.nodes) do
+        emitEntry(node)
     end
 
     local code = table.concat(lines, "\n")
