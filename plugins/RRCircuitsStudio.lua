@@ -454,6 +454,20 @@ local chipLayer = pct(container, 1,0, 1,0, Color3.new(0,0,0))
 chipLayer.BackgroundTransparency = 1
 chipLayer.ZIndex = 3
 
+-- Empty canvas hint (hidden once chips are placed)
+local canvasHint = Instance.new("TextLabel")
+canvasHint.Size = UDim2.new(0,340,0,80)
+canvasHint.Position = UDim2.new(0.5,-170,0.5,-40)
+canvasHint.BackgroundTransparency = 1
+canvasHint.Text = "← Click any chip in the sidebar to add it\n\nMiddle-click drag to pan  •  Scroll to zoom\nClick a port → click another port to wire"
+canvasHint.TextColor3 = Color3.fromRGB(40,70,110)
+canvasHint.Font = Enum.Font.Gotham
+canvasHint.TextSize = 13
+canvasHint.TextXAlignment = Enum.TextXAlignment.Center
+canvasHint.TextWrapped = true
+canvasHint.ZIndex = 1
+canvasHint.Parent = canvasFrame
+
 -- Status bar
 local statusBar = frm(body, 0, 22, SW, 0, Color3.fromRGB(5,12,24))
 statusBar.Size = UDim2.new(1,-SW, 0, 22)
@@ -1020,6 +1034,7 @@ local function addNode(chipId, x, y)
     local nd  = { id=id, chipId=chipId, x=x or 300, y=y or 200 }
     S.nodes[id] = nd
     renderChip(nd)
+    canvasHint.Visible = false  -- hide hint once first chip placed
     return nd
 end
 
@@ -1438,11 +1453,15 @@ hbtns.clear.MouseButton1Click:Connect(function()
 end)
 
 -- ── Sidebar chip list ─────────────────────────────────────────────────────────
+-- Placement counter so chips spread out on canvas
+local placementIdx = 0
+
 local function buildSidebar(filter)
     filter = filter and filter:lower() or ""
     for _, ch2 in ipairs(chipScroll:GetChildren()) do
-        if ch2:IsA("Frame") then ch2:Destroy() end
+        if ch2:IsA("Frame") or ch2:IsA("UIListLayout") then ch2:Destroy() end
     end
+    vlist(chipScroll, 1)   -- recreate layout after clearing
 
     local catOrder = {
         "Control Flow","Math","Logic","Variables","Lists",
@@ -1463,75 +1482,116 @@ local function buildSidebar(filter)
     local lo = 1
     for _, catName in ipairs(catOrder) do
         local chips = bycat[catName]
-        if chips and #chips > 0 then
-            local cc = CAT_COL[catName] or TEXT2
+        if not chips or #chips == 0 then continue end
+        local cc = CAT_COL[catName] or TEXT2
 
-            -- Category header
-            local catHdr = mk("Frame", chipScroll, {
-                Size = UDim2.new(1,0,0,22),
-                BackgroundColor3 = Color3.fromRGB(6,14,28),
-                BorderSizePixel = 0,
-                LayoutOrder = lo,
-            })
+        -- Category header (explicit, no broken helper)
+        local catHdr = Instance.new("Frame")
+        catHdr.Size = UDim2.new(1,0,0,22)
+        catHdr.BackgroundColor3 = Color3.fromRGB(6,14,28)
+        catHdr.BorderSizePixel = 0
+        catHdr.LayoutOrder = lo
+        catHdr.Parent = chipScroll
+        lo = lo + 1
+
+        local catNameLbl = Instance.new("TextLabel")
+        catNameLbl.Size = UDim2.new(1,-50,1,0)
+        catNameLbl.Position = UDim2.new(0,8,0,0)
+        catNameLbl.BackgroundTransparency = 1
+        catNameLbl.Text = catName
+        catNameLbl.TextColor3 = cc
+        catNameLbl.Font = Enum.Font.GothamBold
+        catNameLbl.TextSize = 10
+        catNameLbl.TextXAlignment = Enum.TextXAlignment.Left
+        catNameLbl.Parent = catHdr
+
+        local catCntLbl = Instance.new("TextLabel")
+        catCntLbl.Size = UDim2.new(0,40,1,0)
+        catCntLbl.Position = UDim2.new(1,-44,0,0)
+        catCntLbl.BackgroundTransparency = 1
+        catCntLbl.Text = "("..#chips..")"
+        catCntLbl.TextColor3 = TEXT3
+        catCntLbl.Font = Enum.Font.Gotham
+        catCntLbl.TextSize = 9
+        catCntLbl.TextXAlignment = Enum.TextXAlignment.Right
+        catCntLbl.Parent = catHdr
+
+        for _, chip2 in ipairs(chips) do
+            -- Chip row (explicit sizes)
+            local row = Instance.new("Frame")
+            row.Size = UDim2.new(1,0,0,28)
+            row.BackgroundTransparency = 1
+            row.BorderSizePixel = 0
+            row.LayoutOrder = lo
+            row.Parent = chipScroll
             lo = lo + 1
-            lbl(catHdr, catName, 1,-40, 0,0, cc, 10, Enum.Font.GothamBold)
-                .Position = UDim2.new(0,10,0,0)
-            lbl(catHdr, "("..#chips..")", 0,38, 1,0, TEXT3, 9, Enum.Font.Gotham, Enum.TextXAlignment.Right)
-                .Position = UDim2.new(1,-40,0,0)
 
-            for _, chip2 in ipairs(chips) do
-                local row = mk("Frame", chipScroll, {
-                    Size = UDim2.new(1,0,0,26),
-                    BackgroundTransparency = 1,
-                    BorderSizePixel = 0,
-                    LayoutOrder = lo,
-                })
-                lo = lo + 1
+            -- Colour dot (4px wide bar on left)
+            local dot = Instance.new("Frame")
+            dot.Size = UDim2.new(0,3,1,-8)
+            dot.Position = UDim2.new(0,0,0,4)
+            dot.BackgroundColor3 = cc
+            dot.BorderSizePixel = 0
+            dot.Parent = row
+            Instance.new("UICorner",dot).CornerRadius = UDim.new(0,2)
 
-                -- Coloured icon
-                local icon = mk("Frame", row, {
-                    Size = UDim2.new(0,18,0,18),
-                    Position = UDim2.new(0,8,0,4),
-                    BackgroundColor3 = Color3.new(cc.R*0.15, cc.G*0.15, cc.B*0.15),
-                    BorderSizePixel = 0,
-                })
-                corner(icon, 4)
-                lbl(icon, "∑", 1,0, 0,0, cc, 10, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+            -- Chip name
+            local nameLbl = Instance.new("TextLabel")
+            nameLbl.Size = UDim2.new(1,-50,1,0)
+            nameLbl.Position = UDim2.new(0,10,0,0)
+            nameLbl.BackgroundTransparency = 1
+            nameLbl.Text = chip2.name
+            nameLbl.TextColor3 = TEXT
+            nameLbl.Font = Enum.Font.Gotham
+            nameLbl.TextSize = 11
+            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+            nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+            nameLbl.Parent = row
 
-                lbl(row, chip2.name, 1,-56, 0,0, TEXT, 11, Enum.Font.Gotham)
-                    .Position = UDim2.new(0,30,0,0)
-                lbl(row, #chip2.inp.."→"..#chip2.out, 0,28, 1,0, TEXT3, 9, Enum.Font.Gotham, Enum.TextXAlignment.Right)
-                    .Position = UDim2.new(1,-30,0,0)
+            -- Port count badge
+            local portLbl = Instance.new("TextLabel")
+            portLbl.Size = UDim2.new(0,38,0,16)
+            portLbl.Position = UDim2.new(1,-40,0.5,-8)
+            portLbl.BackgroundColor3 = Color3.fromRGB(6,14,28)
+            portLbl.BorderSizePixel = 0
+            portLbl.Text = #chip2.inp.."→"..#chip2.out
+            portLbl.TextColor3 = TEXT3
+            portLbl.Font = Enum.Font.Gotham
+            portLbl.TextSize = 9
+            portLbl.TextXAlignment = Enum.TextXAlignment.Center
+            portLbl.Parent = row
+            Instance.new("UICorner",portLbl).CornerRadius = UDim.new(0,4)
 
-                -- Click to place chip
-                row.InputBegan:Connect(function(inp)
-                    if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-                    -- Place at canvas center
-                    local cx = (canvasFrame.AbsoluteSize.X/2 - S.panX) / S.scale
-                    local cy = (canvasFrame.AbsoluteSize.Y/2 - S.panY) / S.scale
-                    -- Offset slightly so multiple placements don't stack
-                    local offset = S.nextId * 20
-                    addNode(chip2.id, cx - CHIP_W/2 + (offset%100), cy - 50 + (offset%60))
-                    setStatus("Added: "..chip2.name.."  |  drag its header to move it")
-                end)
+            -- Click to add chip to canvas
+            row.InputBegan:Connect(function(inp)
+                if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+                -- Stagger placement so chips don't all stack
+                placementIdx = placementIdx + 1
+                local col = (placementIdx - 1) % 4
+                local rowN = math.floor((placementIdx - 1) / 4)
+                local px = 60  + col * (CHIP_W + 30)
+                local py = 60  + rowN * 120
+                addNode(chip2.id, px, py)
+                setStatus("Added '"..chip2.name.."'  |  drag the chip header to move it  |  click a port to wire")
+            end)
 
-                row.MouseEnter:Connect(function()
-                    row.BackgroundTransparency = 0
-                    row.BackgroundColor3 = Color3.fromRGB(15,30,55)
-                end)
-                row.MouseLeave:Connect(function()
-                    row.BackgroundTransparency = 1
-                end)
-            end
+            row.MouseEnter:Connect(function()
+                row.BackgroundTransparency = 0
+                row.BackgroundColor3 = Color3.fromRGB(18,36,60)
+            end)
+            row.MouseLeave:Connect(function()
+                row.BackgroundTransparency = 1
+            end)
+        end
 
-            -- Divider
-            mk("Frame", chipScroll, {
-                Size = UDim2.new(1,0,0,1),
-                BackgroundColor3 = BORD,
-                BorderSizePixel = 0,
-                LayoutOrder = lo,
-            })
-            lo = lo + 1
+        -- Divider
+        local div = Instance.new("Frame")
+        div.Size = UDim2.new(1,0,0,1)
+        div.BackgroundColor3 = BORD
+        div.BorderSizePixel = 0
+        div.LayoutOrder = lo
+        div.Parent = chipScroll
+        lo = lo + 1
         end
     end
 end
